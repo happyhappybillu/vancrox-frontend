@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VANCROX • Control Panel</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./admin.css"/>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="./assets/logo.png" class="logo" alt="VANCROX"/>
+      <div>
+        <div class="bname">VANCROX</div>
+        <div class="btag">Control Panel • Desktop Dashboard</div>
+      </div>
+    </div>
+
+    <div class="top-actions">
+      <div class="small">Signed in as <b id="teamName">Verification Team</b></div>
+      <button class="btn ghost" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <!-- Sidebar -->
+    <aside class="side">
+      <div class="side-title">Sections</div>
+
+      <button class="nav active" id="navInv" onclick="go('investors')">Investor Management</button>
+      <button class="nav" id="navTr" onclick="go('traders')">Trader Management</button>
+      <button class="nav" id="navPend" onclick="go('pending')">Pending Balance</button>
+      <button class="nav" id="navApply" onclick="go('apply')">Apply for Trader</button>
+      <button class="nav" id="navSup" onclick="go('support')">Users Support</button>
+      <button class="nav" id="navRep" onclick="go('report')">Report / History</button>
+      <button class="nav" id="navAddr" onclick="go('address')">Address Change</button>
+      <button class="nav" id="navPass" onclick="go('password')">Password Change</button>
+    </aside>
+
+    <!-- Content -->
+    <section class="content" id="content"></section>
+
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="./auth.js"></script>
+  <script>
+    requireAuth("control");
+
+    const content=document.getElementById("content");
+    const toast=document.getElementById("toast");
+
+    function showToast(msg){
+      toast.innerText=msg;
+      toast.classList.add("show");
+      setTimeout(()=>toast.classList.remove("show"),2500);
+    }
+
+    // ====== DATABASE (LOCAL DEMO) ======
+    // Render live backend pe shift karte time API se aayega
+    const DB = {
+      investors: JSON.parse(localStorage.getItem("db_investors") || "[]"),
+      traders: JSON.parse(localStorage.getItem("db_traders") || "[]"),
+
+      // pending deposit/withdraw (investor + trader)
+      pending: JSON.parse(localStorage.getItem("db_pending") || "[]"),
+
+      // trader history approval requests
+      traderApply: JSON.parse(localStorage.getItem("db_trader_apply") || "[]"),
+
+      // support messages
+      support: JSON.parse(localStorage.getItem("db_support") || "[]"),
+
+      // report logs
+      report: JSON.parse(localStorage.getItem("db_report") || "[]"),
+
+      // system addresses
+      addresses: JSON.parse(localStorage.getItem("vancrox_system_addresses") || "null") || {
+        erc20:"0xSYSTEM_ERC20_ADDRESS",
+        trc20:"TSYSTEM_TRC20_ADDRESS",
+        bep20:"0xSYSTEM_BEP20_ADDRESS"
+      }
+    };
+
+    function saveDB(){
+      localStorage.setItem("db_investors", JSON.stringify(DB.investors));
+      localStorage.setItem("db_traders", JSON.stringify(DB.traders));
+      localStorage.setItem("db_pending", JSON.stringify(DB.pending));
+      localStorage.setItem("db_trader_apply", JSON.stringify(DB.traderApply));
+      localStorage.setItem("db_support", JSON.stringify(DB.support));
+      localStorage.setItem("db_report", JSON.stringify(DB.report));
+      localStorage.setItem("vancrox_system_addresses", JSON.stringify(DB.addresses));
+    }
+    saveDB();
+
+    // ====== NAV ======
+    let tab="investors";
+    function go(t){
+      tab=t;
+      document.querySelectorAll(".nav").forEach(x=>x.classList.remove("active"));
+
+      const map={
+        investors:"navInv",
+        traders:"navTr",
+        pending:"navPend",
+        apply:"navApply",
+        support:"navSup",
+        report:"navRep",
+        address:"navAddr",
+        password:"navPass"
+      };
+      document.getElementById(map[t]).classList.add("active");
+      render();
+    }
+
+    // ====== UTIL ======
+    function badge(status){
+      if(status==="pending") return `<span class="pill yellow">PENDING</span>`;
+      if(status==="success") return `<span class="pill green">SUCCESS</span>`;
+      if(status==="failed") return `<span class="pill red">FAILED</span>`;
+      return `<span class="pill">${status}</span>`;
+    }
+
+    // ====== INVESTOR MANAGEMENT ======
+    function renderInvestors(){
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Investor Management</h2>
+            <div class="search">
+              <input id="searchInv" placeholder="Search by Investor ID (UIDxxxx)" />
+              <button class="btn" onclick="searchInvestor()">Search</button>
+            </div>
+          </div>
+
+          <div class="grid2">
+            <div class="card">
+              <div class="k">Total Investors</div>
+              <div class="v">${DB.investors.length}</div>
+            </div>
+            <div class="card">
+              <div class="k">Blocked Investors</div>
+              <div class="v">${DB.investors.filter(x=>x.blocked).length}</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Investors List</h3>
+            <div class="hr"></div>
+            <div class="table">
+              <div class="thead">
+                <div>ID</div><div>Name</div><div>Balance</div><div>Status</div><div>Action</div>
+              </div>
+
+              ${DB.investors.map(u=>`
+                <div class="trow">
+                  <div>${u.id}</div>
+                  <div>${u.name || "-"}</div>
+                  <div>$${Number(u.balance||0).toFixed(2)}</div>
+                  <div>${u.blocked ? `<span class="pill red">BLOCKED</span>` : `<span class="pill green">ACTIVE</span>`}</div>
+                  <div>
+                    <button class="btn ghost sm" onclick='openInvestor("${u.id}")'>Open</button>
+                  </div>
+                </div>
+              `).join("") || `<div class="muted center2">No investors found</div>`}
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Withdrawal Approvals (Investors)</h3>
+            <p class="muted">All pending investor withdrawals appear here.</p>
+            <div class="hr"></div>
+
+            ${
+              DB.pending.filter(p=>p.role==="investor" && p.type==="withdraw").length===0
+              ? `<div class="muted center2">No pending withdrawals</div>`
+              : DB.pending.filter(p=>p.role==="investor" && p.type==="withdraw").map(p=>`
+                <div class="rowitem">
+                  <div>
+                    <div class="b">${p.userId}</div>
+                    <div class="muted">Withdraw: $${p.amount}</div>
+                  </div>
+                  <div class="actions">
+                    ${badge(p.status)}
+                    <button class="btn sm" onclick="approvePending('${p.id}')">Approve</button>
+                    <button class="btn danger sm" onclick="rejectPending('${p.id}')">Reject</button>
+                  </div>
+                </div>
+              `).join("")
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function searchInvestor(){
+      const id=document.getElementById("searchInv").value.trim();
+      if(!id) return showToast("Enter Investor ID");
+      openInvestor(id);
+    }
+
+    function openInvestor(id){
+      const u = DB.investors.find(x=>x.id===id);
+      if(!u) return showToast("Investor not found");
+
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Investor Details</h2>
+            <button class="btn ghost" onclick="go('investors')">Back</button>
+          </div>
+
+          <div class="grid3">
+            <div class="card"><div class="k">Investor ID</div><div class="v">${u.id}</div></div>
+            <div class="card"><div class="k">Available Balance</div><div class="v">$${Number(u.balance||0).toFixed(2)}</div></div>
+            <div class="card"><div class="k">Account Status</div><div class="v">${u.blocked ? "BLOCKED" : "ACTIVE"}</div></div>
+          </div>
+
+          <div class="card">
+            <h3>Deposit / Withdraw Summary</h3>
+            <div class="hr"></div>
+            <div class="grid2">
+              <div class="box">
+                <div class="k">Total Deposit</div>
+                <div class="v">$${Number(u.totalDeposit||0).toFixed(2)}</div>
+              </div>
+              <div class="box">
+                <div class="k">Total Withdraw</div>
+                <div class="v">$${Number(u.totalWithdraw||0).toFixed(2)}</div>
+              </div>
+            </div>
+
+            <div class="hr"></div>
+            <button class="btn danger" onclick="toggleBlock('investor','${u.id}')">
+              ${u.blocked ? "Unblock Account" : "Block Account"}
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ====== TRADER MANAGEMENT ======
+    function renderTraders(){
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Trader Management</h2>
+            <div class="search">
+              <input id="searchTr" placeholder="Search by Trader ID (TIDxxxx)" />
+              <button class="btn" onclick="searchTrader()">Search</button>
+            </div>
+          </div>
+
+          <div class="grid3">
+            <div class="card">
+              <div class="k">Total Traders</div>
+              <div class="v">${DB.traders.length}</div>
+            </div>
+            <div class="card">
+              <div class="k">Approved Traders</div>
+              <div class="v">${DB.traders.filter(x=>x.approved).length}</div>
+            </div>
+            <div class="card">
+              <div class="k">Blocked Traders</div>
+              <div class="v">${DB.traders.filter(x=>x.blocked).length}</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Traders List</h3>
+            <div class="hr"></div>
+
+            <div class="table">
+              <div class="thead">
+                <div>ID</div><div>Name</div><div>Security</div><div>Level</div><div>Status</div><div>Action</div>
+              </div>
+
+              ${DB.traders.map(t=>`
+                <div class="trow">
+                  <div>${t.id}</div>
+                  <div>${t.name || "-"}</div>
+                  <div>$${Number(t.securityMoney||0).toFixed(2)}</div>
+                  <div>${t.level || 1}</div>
+                  <div>
+                    ${t.blocked ? `<span class="pill red">BLOCKED</span>` : `<span class="pill green">ACTIVE</span>`}
+                    ${t.approved ? `<span class="pill green">VERIFIED</span>` : `<span class="pill yellow">PENDING</span>`}
+                  </div>
+                  <div><button class="btn ghost sm" onclick="openTrader('${t.id}')">Open</button></div>
+                </div>
+              `).join("") || `<div class="muted center2">No traders found</div>`}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function searchTrader(){
+      const id=document.getElementById("searchTr").value.trim();
+      if(!id) return showToast("Enter Trader ID");
+      openTrader(id);
+    }
+
+    function openTrader(id){
+      const t = DB.traders.find(x=>x.id===id);
+      if(!t) return showToast("Trader not found");
+
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Trader Details</h2>
+            <button class="btn ghost" onclick="go('traders')">Back</button>
+          </div>
+
+          <div class="grid3">
+            <div class="card"><div class="k">Trader ID</div><div class="v">${t.id}</div></div>
+            <div class="card"><div class="k">Security Money</div><div class="v">$${Number(t.securityMoney||0).toFixed(2)}</div></div>
+            <div class="card"><div class="k">Earning</div><div class="v green">$${Number(t.earning||0).toFixed(2)}</div></div>
+          </div>
+
+          <div class="card">
+            <h3>Controls</h3>
+            <div class="hr"></div>
+            <button class="btn" onclick="toggleVerify('${t.id}')">${t.approved ? "Remove Verification" : "Verify Trader"}</button>
+            <button class="btn danger" onclick="toggleBlock('trader','${t.id}')">${t.blocked ? "Unblock Account" : "Block Account"}</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ====== PENDING BALANCE ======
+    function renderPending(){
+      const list = DB.pending.filter(p=>p.status==="pending");
+
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Pending Balance</h2>
+            <div class="muted">Live pending list — approve/reject updates instantly</div>
+          </div>
+
+          <div class="card">
+            <h3>Pending Requests</h3>
+            <div class="hr"></div>
+
+            ${
+              list.length===0
+              ? `<div class="muted center2">No pending requests</div>`
+              : list.map(p=>`
+                <div class="rowitem">
+                  <div>
+                    <div class="b">${p.userId}</div>
+                    <div class="muted">${p.role.toUpperCase()} • ${p.type.toUpperCase()} • $${p.amount}</div>
+                  </div>
+                  <div class="actions">
+                    ${badge(p.status)}
+                    <button class="btn sm" onclick="approvePending('${p.id}')">Approve</button>
+                    <button class="btn danger sm" onclick="rejectPending('${p.id}')">Reject</button>
+                  </div>
+                </div>
+              `).join("")
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function approvePending(id){
+      const p=DB.pending.find(x=>x.id===id);
+      if(!p) return;
+      p.status="success";
+      saveDB();
+      showToast("Approved");
+      render();
+    }
+
+    function rejectPending(id){
+      const p=DB.pending.find(x=>x.id===id);
+      if(!p) return;
+      p.status="failed";
+      saveDB();
+      showToast("Rejected");
+      render();
+    }
+
+    // ====== APPLY FOR TRADER ======
+    function renderApply(){
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Apply for Trader</h2>
+            <div class="muted">Approve / Reject trader history uploads</div>
+          </div>
+
+          <div class="card">
+            <h3>Pending Applications</h3>
+            <div class="hr"></div>
+
+            ${
+              DB.traderApply.length===0
+              ? `<div class="muted center2">No applications</div>`
+              : DB.traderApply.map(a=>`
+                <div class="rowitem">
+                  <div>
+                    <div class="b">${a.traderId}</div>
+                    <div class="muted">Submitted: ${new Date(a.date).toLocaleString()}</div>
+                  </div>
+                  <div class="actions">
+                    <button class="btn sm" onclick="approveTraderApp('${a.id}')">Approve</button>
+                    <button class="btn danger sm" onclick="rejectTraderApp('${a.id}')">Reject</button>
+                  </div>
+                </div>
+              `).join("")
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function approveTraderApp(id){
+      const a=DB.traderApply.find(x=>x.id===id);
+      if(!a) return;
+      const t=DB.traders.find(x=>x.id===a.traderId);
+      if(t) t.approved=true;
+      DB.traderApply=DB.traderApply.filter(x=>x.id!==id);
+      saveDB();
+      showToast("Trader Approved");
+      render();
+    }
+
+    function rejectTraderApp(id){
+      DB.traderApply=DB.traderApply.filter(x=>x.id!==id);
+      saveDB();
+      showToast("Trader Rejected");
+      render();
+    }
+
+    // ====== SUPPORT ======
+    function renderSupport(){
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Users Support</h2>
+            <div class="muted">Reply to user issues & mark solved</div>
+          </div>
+
+          <div class="card">
+            <h3>Open Tickets</h3>
+            <div class="hr"></div>
+
+            ${
+              DB.support.length===0
+              ? `<div class="muted center2">No support tickets</div>`
+              : DB.support.map(s=>`
+                <div class="support">
+                  <div class="between">
+                    <div class="b">${s.userId} • ${s.userRole.toUpperCase()}</div>
+                    ${badge(s.status || "pending")}
+                  </div>
+
+                  <div class="msg">${s.message}</div>
+
+                  <div class="reply">
+                    <textarea id="rep_${s.id}" rows="2" placeholder="Write reply..."></textarea>
+                    <div class="actions">
+                      <button class="btn sm" onclick="replySupport('${s.id}')">Reply</button>
+                      <button class="btn ghost sm" onclick="solveSupport('${s.id}')">Solved</button>
+                    </div>
+                  </div>
+                </div>
+              `).join("")
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function replySupport(id){
+      const txt=document.getElementById("rep_"+id).value.trim();
+      if(!txt) return showToast("Write reply message");
+      const s=DB.support.find(x=>x.id===id);
+      if(s) s.reply=txt;
+      saveDB();
+      showToast("Reply sent");
+    }
+
+    function solveSupport(id){
+      DB.support=DB.support.filter(x=>x.id!==id);
+      saveDB();
+      showToast("Ticket solved");
+      render();
+    }
+
+    // ====== REPORT ======
+    function renderReport(){
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Report / History</h2>
+            <div class="muted">Deposits & withdrawals overview (all users)</div>
+          </div>
+
+          <div class="card">
+            <div class="table">
+              <div class="thead">
+                <div>User ID</div><div>Name</div><div>Total Deposit</div><div>Total Withdraw</div>
+              </div>
+
+              ${
+                [...DB.investors, ...DB.traders].map(u=>`
+                  <div class="trow">
+                    <div>${u.id}</div>
+                    <div>${u.name || "-"}</div>
+                    <div>$${Number(u.totalDeposit||0).toFixed(2)}</div>
+                    <div>$${Number(u.totalWithdraw||0).toFixed(2)}</div>
+                  </div>
+                `).join("") || `<div class="muted center2">No data available</div>`
+              }
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ====== ADDRESS CHANGE ======
+    function renderAddress(){
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Address Change</h2>
+            <div class="muted">Update system deposit/profit addresses (reflects instantly for all users)</div>
+          </div>
+
+          <div class="card">
+            <h3>System Wallet Addresses</h3>
+            <div class="hr"></div>
+
+            <label class="lbl">ERC20</label>
+            <input id="erc" value="${DB.addresses.erc20}"/>
+
+            <label class="lbl">TRC20</label>
+            <input id="trc" value="${DB.addresses.trc20}"/>
+
+            <label class="lbl">BEP20</label>
+            <input id="bep" value="${DB.addresses.bep20}"/>
+
+            <div class="hr"></div>
+            <button class="btn" onclick="saveAddress()">Save</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function saveAddress(){
+      DB.addresses.erc20=document.getElementById("erc").value.trim();
+      DB.addresses.trc20=document.getElementById("trc").value.trim();
+      DB.addresses.bep20=document.getElementById("bep").value.trim();
+      saveDB();
+      showToast("Addresses updated");
+    }
+
+    // ====== PASSWORD CHANGE ======
+    function renderPassword(){
+      content.innerHTML=`
+        <div class="page">
+          <div class="page-head">
+            <h2>Password Change</h2>
+            <div class="muted">Change Control Panel login password</div>
+          </div>
+
+          <div class="card">
+            <label class="lbl">Old Password</label>
+            <input type="password" placeholder="Old password"/>
+
+            <label class="lbl">New Password</label>
+            <input type="password" placeholder="New password"/>
+
+            <div class="hr"></div>
+            <button class="btn">Save</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleBlock(type,id){
+      if(type==="investor"){
+        const u=DB.investors.find(x=>x.id===id);
+        if(u) u.blocked=!u.blocked;
+      }else{
+        const t=DB.traders.find(x=>x.id===id);
+        if(t) t.blocked=!t.blocked;
+      }
+      saveDB();
+      showToast("Updated");
+      render();
+    }
+
+    function toggleVerify(id){
+      const t=DB.traders.find(x=>x.id===id);
+      if(t) t.approved=!t.approved;
+      saveDB();
+      showToast("Updated");
+      render();
+    }
+
+    function render(){
+      if(tab==="investors") renderInvestors();
+      if(tab==="traders") renderTraders();
+      if(tab==="pending") renderPending();
+      if(tab==="apply") renderApply();
+      if(tab==="support") renderSupport();
+      if(tab==="report") renderReport();
+      if(tab==="address") renderAddress();
+      if(tab==="password") renderPassword();
+      saveDB();
+    }
+
+    render();
+  </script>
+
+</body>
+</html>

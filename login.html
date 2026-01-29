@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login • VANCROX</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./auth.css"/>
+</head>
+<body>
+
+  <div class="bg-orbs"></div>
+  <div class="bg-grid"></div>
+  <div id="particles"></div>
+
+  <header class="nav">
+    <div class="brand">
+      <img src="./assets/logo.png" class="brand-logo" alt="VANCROX Logo">
+      <span class="brand-name">VANCROX</span>
+    </div>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="./index.html">Home</a>
+      <a class="btn btn-primary" href="./register.html">Register</a>
+    </div>
+  </header>
+
+  <main class="auth-wrap">
+    <section class="auth-card">
+      <div class="auth-inner">
+        <div class="auth-title">Login</div>
+        <div class="auth-sub">Access your trading dashboard securely.</div>
+
+        <div id="msg" class="msg"></div>
+
+        <form id="loginForm" class="form">
+          <div class="field">
+            <label>Email / Mobile</label>
+            <input id="email" type="text" placeholder="Enter email or mobile" required />
+          </div>
+
+          <div class="field">
+            <label>Password</label>
+            <input id="password" type="password" placeholder="Enter password" required />
+          </div>
+
+          <div class="row">
+            <button class="btn btn-primary" type="submit">Login</button>
+            <a class="btn btn-ghost" href="./register.html">Create Account</a>
+          </div>
+
+          <div class="small-links">
+            <a href="./register.html">Register</a>
+            <a href="./index.html#how-it-works">How it works</a>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script src="./auth.js"></script>
+  <script>
+    // particles
+    const particles = document.getElementById('particles');
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('span');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.top = Math.random() * 100 + '%';
+      p.style.animationDelay = (Math.random() * 8) + 's';
+      p.style.animationDuration = (6 + Math.random() * 10) + 's';
+      particles.appendChild(p);
+    }
+
+    const msg = document.getElementById("msg");
+    function show(type, text){
+      msg.className = "msg show " + (type === "ok" ? "ok" : "err");
+      msg.innerText = text;
+    }
+
+    document.getElementById("loginForm").addEventListener("submit", async (e)=>{
+      e.preventDefault();
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if(!email || !password) return show("err","Invalid input. Please try again.");
+
+      const { ok, data } = await api("/api/auth/login", {
+        method:"POST",
+        body: JSON.stringify({ email, password })
+      });
+
+      if(!ok){
+        return show("err", data?.message || "Invalid credentials. Please try again.");
+      }
+
+      saveAuth(data.token, data.user);
+      show("ok","Login successful. Redirecting...");
+
+      setTimeout(()=>{
+        if(data.user.role === "investor") window.location.href = "./investor-dashboard.html";
+        else if(data.user.role === "trader") window.location.href = "./trader-dashboard.html";
+        else if(data.user.role === "admin") window.location.href = "./admin-dashboard.html";
+        else window.location.href = "./index.html";
+      }, 700);
+    });
+  </script>
+</body>
+</html>

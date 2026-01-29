@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trader Dashboard • VANCROX</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./trader.css" />
+</head>
+
+<body>
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <img src="./assets/logo.png" class="logo" alt="VANCROX"/>
+      <div class="btxt">
+        <div class="bname">VANCROX</div>
+        <div class="btag">Trader Panel</div>
+      </div>
+    </div>
+
+    <div class="top-right">
+      <div class="chip">
+        <div class="chip-label">Trader ID</div>
+        <div class="chip-value" id="tidText">TID0000</div>
+      </div>
+
+      <div class="chip">
+        <div class="chip-label">Security Money</div>
+        <div class="chip-value" id="secText">$0.00</div>
+      </div>
+
+      <div class="chip green">
+        <div class="chip-label">Earning</div>
+        <div class="chip-value" id="earnText">$0.00</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- LAYOUT -->
+  <main class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="profile">
+        <div class="avatar">T</div>
+        <div class="pinfo">
+          <div class="pname" id="tName">Trader</div>
+          <div class="plevel">Level <b id="tLevel">1</b> • Trades <b id="tTrades">0</b></div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-btn active" id="navDash" onclick="go('dashboard')">Dashboard</button>
+        <button class="nav-btn" id="navAds" onclick="go('ads')">Run Ad Free</button>
+        <button class="nav-btn" id="navInv" onclick="go('inventory')">My Inventory</button>
+        <button class="nav-btn" id="navHist" onclick="go('history')">History</button>
+        <button class="nav-btn" id="navMenu" onclick="go('menu')">Menu</button>
+      </nav>
+
+      <button class="logout" onclick="logout()">Logout</button>
+    </aside>
+
+    <!-- CONTENT -->
+    <section class="content" id="content"></section>
+
+  </main>
+
+  <!-- MODAL -->
+  <div class="modal hidden" id="modal">
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <!-- AUTH REQUIRED -->
+  <script src="./auth.js"></script>
+
+  <script>
+    // =======================
+    // IMPORTANT RULES:
+    // =======================
+    // 1) trader registers as trader
+    // 2) after login: only upload history visible
+    // 3) after upload: status pending
+    // 4) approval => unlock security deposit screen
+    // 5) security deposit >= 100 required
+    // 6) only then dashboard unlock
+    // 7) security money cannot be withdrawn normally (only close account)
+    // 8) withdrawal only for earning (min 100)
+    // 9) trader ads limit = security money
+    // 10) trades completed => every 10 trades: level +1
+    // 11) level determines number of running ads allowed
+    // 12) investor hires => trade appears in inventory
+    // 13) loss => refund successful + security money 0
+    // 14) profit => investor credited instantly, then trader sends profit proof to wallet, pending => approval => earning 10% profit
+    // 15) Admin word should not be shown to users (we use "Verification Team")
+
+    requireAuth("trader");
+    const content = document.getElementById("content");
+
+    // ====== Toast ======
+    const toast = document.getElementById("toast");
+    function showToast(msg){
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(()=>toast.classList.remove("show"), 2500);
+    }
+
+    // ====== Modal ======
+    const modal = document.getElementById("modal");
+    const modalCard = document.getElementById("modalCard");
+
+    function openModal(html){
+      modalCard.innerHTML = html;
+      modal.classList.remove("hidden");
+    }
+    function closeModal(){
+      modal.classList.add("hidden");
+      modalCard.innerHTML = "";
+    }
+    modal.addEventListener("click",(e)=>{ if(e.target.id==="modal") closeModal(); });
+
+    // ====== Auth user ======
+    const { user } = getAuth();   // from auth.js
+    const USER_KEY = "vancrox_trader_" + (user?.id || user?.tid || "unknown");
+
+    // ====== Default addresses (system-controlled, editable in panel) ======
+    const SYS_ADDR_KEY = "vancrox_system_addresses";
+    const sysAddr = JSON.parse(localStorage.getItem(SYS_ADDR_KEY) || "null") || {
+      erc20:"0xSYSTEM_ERC20_ADDRESS",
+      trc20:"TSYSTEM_TRC20_ADDRESS",
+      bep20:"0xSYSTEM_BEP20_ADDRESS"
+    };
+    localStorage.setItem(SYS_ADDR_KEY, JSON.stringify(sysAddr));
+
+    // ====== Trader Data ======
+    const state = JSON.parse(localStorage.getItem(USER_KEY) || "null") || {
+      tab:"dashboard",
+
+      // verification steps
+      historyUploaded:false,
+      approved:false,
+
+      // finance
+      securityMoney:0,
+      earning:0,
+
+      // level
+      level:1,
+      tradeCount:0,
+
+      // ads
+      ads:[],        // {id, returnPct, limit, status:"live"/"locked"}
+
+      // inventory trades
+      inventory:[],  // {id, investorName, amount, returnPct, status:"ongoing"}
+
+      // history
+      earningHistory:[] // {id, amount, date, status:"success"}
+    };
+
+    function save(){ localStorage.setItem(USER_KEY, JSON.stringify(state)); }
+
+    // header info
+    document.getElementById("tName").innerText = user?.name || "Trader";
+    document.getElementById("tidText").innerText = user?.id || user?.tid || "TID0000";
+
+    // =======================
+    // NAV
+    // =======================
+    function go(tab){
+      state.tab = tab;
+      save();
+      render();
+    }
+
+    function setActiveNav(){
+      const map = {dashboard:"navDash", ads:"navAds", inventory:"navInv", history:"navHist", menu:"navMenu"};
+      Object.values(map).forEach(id=>document.getElementById(id).classList.remove("active"));
+      document.getElementById(map[state.tab])?.classList.add("active");
+    }
+
+    // =======================
+    // LOCK CHECK
+    // =======================
+    function render(){
+      // update top chips
+      document.getElementById("secText").innerText = "$" + Number(state.securityMoney).toFixed(2);
+      document.getElementById("earnText").innerText = "$" + Number(state.earning).toFixed(2);
+
+      document.getElementById("tLevel").innerText = state.level;
+      document.getElementById("tTrades").innerText = state.tradeCount;
+
+      // LOCK: upload history
+      if(!state.historyUploaded && !state.approved){
+        renderUpload();
+        return;
+      }
+
+      // LOCK: pending review
+      if(state.historyUploaded && !state.approved){
+        renderPending();
+        return;
+      }
+
+      // LOCK: security deposit
+      if(state.approved && state.securityMoney < 100){
+        renderSecurityLock();
+        return;
+      }
+
+      // unlocked
+      setActiveNav();
+      if(state.tab==="dashboard") renderDashboard();
+      if(state.tab==="ads") renderAds();
+      if(state.tab==="inventory") renderInventory();
+      if(state.tab==="history") renderHistory();
+      if(state.tab==="menu") renderMenu();
+
+      save();
+    }
+
+    // =======================
+    // STEP 1: upload history
+    // =======================
+    function renderUpload(){
+      content.innerHTML = `
+        <div class="card center">
+          <h2>Upload Trading History</h2>
+          <p class="muted">
+            Upload your last 2 years trading history to activate Trader dashboard.
+          </p>
+          <div class="hr"></div>
+
+          <label class="lbl">Upload File (Image/PDF)</label>
+          <input type="file" id="hisFile" />
+
+          <button class="btn full" onclick="submitHistory()">Submit</button>
+
+          <div class="note">
+            After submitting, your profile will be reviewed by the Verification Team.
+          </div>
+        </div>
+      `;
+    }
+
+    function submitHistory(){
+      const f = document.getElementById("hisFile").files[0];
+      if(!f) return showToast("Please upload your history file");
+
+      state.historyUploaded = true;
+      save();
+      showToast("Submitted • Status Pending");
+      render();
+
+      // demo auto approve (real backend me approval panel se hoga)
+      setTimeout(()=>{
+        state.approved = true;
+        save();
+        showToast("Approved • Deposit Security Money to unlock");
+        render();
+      }, 2500);
+    }
+
+    // =======================
+    // STEP 2: pending approval
+    // =======================
+    function renderPending(){
+      content.innerHTML = `
+        <div class="card center">
+          <h2>Under Review</h2>
+          <p class="muted">
+            Your documents are being checked. Once verified, the Trader dashboard will unlock automatically.
+          </p>
+          <div class="pill yellow">STATUS: PENDING</div>
+        </div>
+      `;
+    }
+
+    // =======================
+    // STEP 3: security deposit
+    // =======================
+    function renderSecurityLock(){
+      content.innerHTML = `
+        <div class="card center">
+          <h2>Security Deposit Required</h2>
+          <p class="muted">
+            Minimum required: <b>$100</b> Security Money
+          </p>
+
+          <div class="hr"></div>
+
+          <button class="btn full" onclick="openSecurityDeposit()">Deposit Security Money</button>
+
+          <div class="note">
+            Until Security Money is deposited, all Trader features remain locked.
+          </div>
+        </div>
+      `;
+    }
+
+    function openSecurityDeposit(){
+      openModal(`
+        <div class="modal-title">Deposit Security Money</div>
+        <p class="muted">Copy address → transfer → upload proof</p>
+        <div class="hr"></div>
+
+        <div class="addr">
+          <div class="addr-title">ERC20</div>
+          <div class="addr-row">
+            <input readonly value="${sysAddr.erc20}">
+            <button onclick="copy('${sysAddr.erc20}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="addr">
+          <div class="addr-title">TRC20</div>
+          <div class="addr-row">
+            <input readonly value="${sysAddr.trc20}">
+            <button onclick="copy('${sysAddr.trc20}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="addr">
+          <div class="addr-title">BEP20</div>
+          <div class="addr-row">
+            <input readonly value="${sysAddr.bep20}">
+            <button onclick="copy('${sysAddr.bep20}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <label class="lbl">Amount</label>
+        <input type="number" id="secAmt" placeholder="Enter amount (min 100)" />
+
+        <label class="lbl">Upload Proof</label>
+        <input type="file" id="secProof" />
+
+        <button class="btn full" onclick="submitSecurity()">Submit</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function submitSecurity(){
+      const amt = Number(document.getElementById("secAmt").value || 0);
+      if(amt < 100) return showToast("Minimum Security Money is 100");
+
+      state.securityMoney += amt;
+      save();
+      closeModal();
+      showToast("Security Money Added • Dashboard Unlocked");
+      render();
+    }
+
+    // =======================
+    // MAIN DASHBOARD
+    // =======================
+    function renderDashboard(){
+      content.innerHTML = `
+        <div class="grid3">
+          <div class="card">
+            <div class="k">Security Money</div>
+            <div class="v">$${Number(state.securityMoney).toFixed(2)}</div>
+            <div class="muted">Used as Ad limit</div>
+          </div>
+
+          <div class="card">
+            <div class="k">Total Earnings</div>
+            <div class="v green">$${Number(state.earning).toFixed(2)}</div>
+            <div class="muted">Withdraw min $100</div>
+          </div>
+
+          <div class="card">
+            <div class="k">Ads Allowed</div>
+            <div class="v">${state.level}</div>
+            <div class="muted">${state.level} running ads max</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Important Rules</h3>
+          <div class="hr"></div>
+          <ul class="rules">
+            <li>Ad limit equals Security Money amount.</li>
+            <li>Only Earning can be withdrawn (min $100).</li>
+            <li>Security Money cannot be withdrawn normally.</li>
+            <li>Loss → refund completes → Security Money becomes 0.</li>
+            <li>Every 10 completed trades → Level +1.</li>
+          </ul>
+        </div>
+      `;
+    }
+
+    // =======================
+    // ADS
+    // =======================
+    function renderAds(){
+      const allowed = state.level;
+      const live = state.ads.filter(a=>a.status==="live").length;
+
+      const list = state.ads.length
+        ? state.ads.map(a=>`
+          <div class="rowitem">
+            <div>
+              <div class="b">Return: ${a.returnPct}%</div>
+              <div class="muted">Limit: $${a.limit}</div>
+            </div>
+            <div class="pill ${a.status==="live" ? "green" : "yellow"}">${a.status.toUpperCase()}</div>
+          </div>
+        `).join("")
+        : `<div class="muted center2">No ads running</div>`;
+
+      content.innerHTML = `
+        <div class="card">
+          <div class="between">
+            <h3>Run Ad Free</h3>
+            <div class="muted">Live Ads: ${live}/${allowed}</div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="note">
+            Fee: <b>10% on profit</b> (after verification)
+          </div>
+
+          ${
+            live >= allowed
+              ? `<div class="pill yellow">Complete more trades to unlock more ad slots</div>`
+              : `<button class="btn" onclick="openAdCreate()">Create Ad</button>`
+          }
+
+          <div class="hr"></div>
+          <div class="list">${list}</div>
+        </div>
+      `;
+    }
+
+    function openAdCreate(){
+      openModal(`
+        <div class="modal-title">Create Ad</div>
+        <p class="muted">Your Ad limit will equal your Security Money.</p>
+
+        <div class="hr"></div>
+
+        <label class="lbl">Return %</label>
+        <input type="number" id="retPct" placeholder="e.g. 25" />
+
+        <div class="note">
+          Current Security Money: <b>$${Number(state.securityMoney).toFixed(2)}</b>
+        </div>
+
+        <button class="btn full" onclick="createAd()">Confirm</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function createAd(){
+      const pct = Number(document.getElementById("retPct").value || 0);
+      if(pct <= 0) return showToast("Enter a valid return %");
+
+      const adLimit = Math.floor(Number(state.securityMoney));
+      if(adLimit < 1) return showToast("Deposit Security Money first");
+
+      state.ads.push({
+        id: "ad_" + Date.now(),
+        returnPct: pct,
+        limit: adLimit,
+        status: "live"
+      });
+
+      save();
+      closeModal();
+      showToast("Ad Created • Visible to investors");
+      render();
+    }
+
+    // =======================
+    // INVENTORY
+    // =======================
+    function renderInventory(){
+      const inv = state.inventory;
+
+      content.innerHTML = `
+        <div class="card">
+          <h3>My Inventory</h3>
+          <p class="muted">
+            When an investor hires you, the trade appears here.
+          </p>
+
+          <div class="hr"></div>
+
+          <div class="list">
+            ${
+              inv.length===0
+                ? `<div class="muted center2">No inventory available</div>`
+                : inv.map(t=>`
+                  <div class="inv">
+                    <div class="between">
+                      <div class="b">${t.investorName}</div>
+                      <div class="pill yellow">ONGOING</div>
+                    </div>
+
+                    <div class="muted">Amount: <b>$${t.amount}</b></div>
+                    <div class="muted">Return: <b>${t.returnPct}%</b></div>
+
+                    <div class="hr"></div>
+
+                    <div class="muted">
+                      Check your wallet, amount credited and complete the trade.
+                    </div>
+
+                    <button class="btn sm" onclick="openTrade('${t.id}')">Continue</button>
+                  </div>
+                `).join("")
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    function openTrade(id){
+      openModal(`
+        <div class="modal-title">Trade Status</div>
+        <p class="muted">Choose Profit or Loss</p>
+        <div class="hr"></div>
+
+        <button class="btn full" onclick="profit('${id}')">Profit</button>
+        <button class="btn danger full" onclick="loss('${id}')">Loss</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function loss(id){
+      // Loss => security 0, refund successful
+      state.securityMoney = 0;
+      state.inventory = state.inventory.filter(x=>x.id!==id);
+      save();
+
+      closeModal();
+      showToast("Refund Successful • Security Money Reset to 0");
+      render();
+    }
+
+    function profit(id){
+      const t = state.inventory.find(x=>x.id===id);
+      if(!t) return;
+
+      // investor credited instantly (backend later)
+      closeModal();
+
+      openModal(`
+        <div class="modal-title">Send Profit Amount</div>
+        <p class="muted">
+          Send profit amount to address below & upload proof.
+        </p>
+
+        <div class="hr"></div>
+
+        <div class="addr">
+          <div class="addr-title">ERC20</div>
+          <div class="addr-row">
+            <input readonly value="${sysAddr.erc20}">
+            <button onclick="copy('${sysAddr.erc20}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="addr">
+          <div class="addr-title">TRC20</div>
+          <div class="addr-row">
+            <input readonly value="${sysAddr.trc20}">
+            <button onclick="copy('${sysAddr.trc20}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="addr">
+          <div class="addr-title">BEP20</div>
+          <div class="addr-row">
+            <input readonly value="${sysAddr.bep20}">
+            <button onclick="copy('${sysAddr.bep20}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <label class="lbl">Upload Proof</label>
+        <input type="file" id="pf" />
+
+        <button class="btn full" onclick="submitProfit('${id}')">Submit</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function submitProfit(id){
+      const t = state.inventory.find(x=>x.id===id);
+      if(!t) return;
+
+      // earning = 10% of profit
+      const profitAmount = (t.amount * t.returnPct) / 100;
+      const earning = profitAmount * 0.10;
+
+      state.earning += earning;
+      state.earningHistory.push({
+        id:"eh_" + Date.now(),
+        amount: earning,
+        date: new Date().toISOString(),
+        status:"success"
+      });
+
+      // trade completed => level rules
+      state.tradeCount += 1;
+      if(state.tradeCount % 10 === 0) state.level += 1;
+
+      // remove inventory entry
+      state.inventory = state.inventory.filter(x=>x.id!==id);
+      save();
+
+      closeModal();
+      showToast("Proof Submitted • Pending Verification");
+      render();
+    }
+
+    // =======================
+    // HISTORY (earning only)
+    // =======================
+    function renderHistory(){
+      const list = state.earningHistory.slice().reverse();
+
+      content.innerHTML = `
+        <div class="card">
+          <h3>History</h3>
+          <p class="muted">Only earnings history is shown here.</p>
+
+          <div class="hr"></div>
+
+          <div class="list">
+            ${
+              list.length===0
+                ? `<div class="muted center2">No history available</div>`
+                : list.map(x=>`
+                  <div class="rowitem">
+                    <div>
+                      <div class="b">$${Number(x.amount).toFixed(2)}</div>
+                      <div class="muted">${new Date(x.date).toLocaleString()}</div>
+                    </div>
+                    <div class="pill green">EARNED</div>
+                  </div>
+                `).join("")
+            }
+          </div>
+        </div>
+      `;
+    }
+
+    // =======================
+    // MENU
+    // =======================
+    function renderMenu(){
+      content.innerHTML = `
+        <div class="card">
+          <h3>Menu</h3>
+          <p class="muted">Account settings & withdrawal</p>
+          <div class="hr"></div>
+
+          <button class="btn ghost full" onclick="withdrawAddress()">Withdrawal Address</button>
+          <button class="btn ghost full" onclick="changePassword()">Change Password</button>
+          <button class="btn ghost full" onclick="support()">Help / Support</button>
+
+          <div class="hr"></div>
+
+          <button class="btn full" onclick="withdrawEarning()">Withdraw Earning</button>
+          <button class="btn danger full" onclick="closeAccount()">Close Account</button>
+
+          <div class="note">
+            Security Money is released only after closing account.
+          </div>
+        </div>
+      `;
+    }
+
+    function withdrawAddress(){
+      openModal(`
+        <div class="modal-title">Withdrawal Address</div>
+        <p class="muted">Save your payout wallet addresses</p>
+        <div class="hr"></div>
+
+        <label class="lbl">ERC20 Address</label>
+        <input placeholder="Enter ERC20 address" />
+
+        <label class="lbl">TRC20 Address</label>
+        <input placeholder="Enter TRC20 address" />
+
+        <label class="lbl">BEP20 Address</label>
+        <input placeholder="Enter BEP20 address" />
+
+        <button class="btn full" onclick="closeModal();showToast('Saved')">Save</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function changePassword(){
+      openModal(`
+        <div class="modal-title">Change Password</div>
+        <div class="hr"></div>
+
+        <label class="lbl">Old Password</label>
+        <input type="password" placeholder="Old password" />
+
+        <label class="lbl">New Password</label>
+        <input type="password" placeholder="New password" />
+
+        <button class="btn full" onclick="closeModal();showToast('Password Updated')">Save</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function support(){
+      openModal(`
+        <div class="modal-title">Help / Support</div>
+        <p class="muted">Write your issue below</p>
+        <div class="hr"></div>
+
+        <textarea rows="6" placeholder="Type message..."></textarea>
+
+        <button class="btn full" onclick="closeModal();showToast('Message Sent')">Send</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function withdrawEarning(){
+      if(state.earning < 100) return showToast("Minimum withdrawal is 100");
+
+      openModal(`
+        <div class="modal-title">Withdraw Earning</div>
+        <p class="muted">Minimum withdraw: $100</p>
+        <div class="hr"></div>
+
+        <label class="lbl">Amount</label>
+        <input type="number" id="wAmt" placeholder="Enter amount" />
+
+        <button class="btn full" onclick="submitWithdraw()">Submit</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function submitWithdraw(){
+      const amt = Number(document.getElementById("wAmt").value || 0);
+      if(amt < 100) return showToast("Minimum withdrawal is 100");
+      if(amt > state.earning) return showToast("Insufficient earning balance");
+
+      state.earning -= amt;
+      save();
+      closeModal();
+
+      showToast("Withdrawal Submitted • Status Pending");
+      render();
+    }
+
+    function closeAccount(){
+      // in real backend it will release security money after verification
+      showToast("Close Account request submitted");
+    }
+
+    // utils
+    function copy(text){
+      navigator.clipboard.writeText(text);
+      showToast("Copied");
+    }
+
+    // render initial
+    save();
+    render();
+  </script>
+
+</body>
+</html>

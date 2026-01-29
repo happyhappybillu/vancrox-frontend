@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Investor Dashboard • VANCROX</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./investor.css" />
+</head>
+
+<body>
+
+  <!-- Premium BG -->
+  <div class="bg-orbs"></div>
+  <div class="bg-grid"></div>
+  <div id="particles"></div>
+
+  <!-- Header -->
+  <header class="dash-header">
+    <div class="left">
+      <button class="menu-btn" id="menuBtn">☰</button>
+      <div class="profile" id="profileBtn">
+        <img id="profileImg" src="./assets/default-user.png" alt="Profile" />
+        <div class="profile-meta">
+          <div class="welcome">Welcome back</div>
+          <div class="name" id="userName">Investor</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="uid-box">
+        <div class="uid-label">User ID</div>
+        <div class="uid" id="userId">UID000000</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Menu Drawer -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-top">
+      <div class="drawer-title">Menu</div>
+      <button class="drawer-close" id="closeDrawer">✕</button>
+    </div>
+
+    <button class="drawer-item" onclick="openWithdrawAddress()">Withdrawal Address</button>
+    <button class="drawer-item" onclick="openChangePassword()">Change Password</button>
+    <button class="drawer-item" onclick="openSupport()">Help / Support</button>
+
+    <div class="drawer-line"></div>
+    <button class="drawer-item danger" onclick="logout()">Logout</button>
+  </aside>
+
+  <!-- Profile Dropdown -->
+  <div class="profile-pop" id="profilePop">
+    <button onclick="openProfileEdit()">Edit Profile</button>
+    <button class="danger" onclick="logout()">Logout</button>
+  </div>
+
+  <!-- Main -->
+  <main class="container" id="screen"></main>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" id="navHome" onclick="goTab('home')">Home</button>
+    <button class="nav-item" id="navChart" onclick="goTab('chart')">
+      <span class="dot-red"></span> Chart View
+    </button>
+    <button class="nav-item" id="navTraders" onclick="goTab('traders')">My Traders</button>
+    <button class="nav-item" id="navHistory" onclick="goTab('history')">History</button>
+  </nav>
+
+  <!-- Modals -->
+  <div class="modal hidden" id="modal">
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="./auth.js"></script>
+  <script>
+    // ✅ auth protect
+    requireAuth("investor");
+
+    // particles
+    const particles = document.getElementById('particles');
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('span');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.top = Math.random() * 100 + '%';
+      p.style.animationDelay = (Math.random() * 8) + 's';
+      p.style.animationDuration = (6 + Math.random() * 10) + 's';
+      particles.appendChild(p);
+    }
+
+    /* ================================
+       GLOBAL STATE
+    ================================ */
+    const { user } = getAuth();
+    const screen = document.getElementById("screen");
+
+    const state = {
+      tab: "home",
+      balance: 0,
+      withdrawAddress: { ERC20:"", TRC20:"", BEP20:"" },
+      deposits: [],
+      withdraws: [],
+      myTrades: [],
+      topTraders: [] // backend later
+    };
+
+    /* ================================
+       INIT USER
+    ================================ */
+    document.getElementById("userName").innerText = user?.name || "Investor";
+    document.getElementById("userId").innerText = user?.uid || user?.generatedId || "UID000000";
+
+    // load local simulation
+    loadLocal();
+
+    function loadLocal(){
+      const key = "vancrox_inv_" + (user?.uid || user?.id);
+      const saved = JSON.parse(localStorage.getItem(key) || "null");
+      if(saved){
+        Object.assign(state, saved);
+      }else{
+        // default
+        state.balance = 0;
+        state.topTraders = []; // empty
+        saveLocal();
+      }
+      render();
+    }
+    function saveLocal(){
+      const key = "vancrox_inv_" + (user?.uid || user?.id);
+      localStorage.setItem(key, JSON.stringify(state));
+    }
+
+    /* ================================
+       UI HELPERS
+    ================================ */
+    const toast = document.getElementById("toast");
+    function showToast(text){
+      toast.innerText = text;
+      toast.classList.add("show");
+      setTimeout(()=>toast.classList.remove("show"), 2600);
+    }
+
+    const modal = document.getElementById("modal");
+    const modalCard = document.getElementById("modalCard");
+    function openModal(html){
+      modalCard.innerHTML = html;
+      modal.classList.remove("hidden");
+    }
+    function closeModal(){
+      modal.classList.add("hidden");
+      modalCard.innerHTML = "";
+    }
+    modal.addEventListener("click",(e)=>{
+      if(e.target.id === "modal") closeModal();
+    });
+
+    /* ================================
+       MENU / PROFILE
+    ================================ */
+    const drawer = document.getElementById("drawer");
+    document.getElementById("menuBtn").onclick = ()=> drawer.classList.add("open");
+    document.getElementById("closeDrawer").onclick = ()=> drawer.classList.remove("open");
+
+    const profilePop = document.getElementById("profilePop");
+    document.getElementById("profileBtn").onclick = ()=>{
+      profilePop.classList.toggle("open");
+    };
+    document.addEventListener("click",(e)=>{
+      if(!e.target.closest("#profileBtn") && !e.target.closest("#profilePop")){
+        profilePop.classList.remove("open");
+      }
+    });
+
+    /* ================================
+       NAV
+    ================================ */
+    function goTab(tab){
+      state.tab = tab;
+      render();
+    }
+    function setActiveNav(){
+      ["home","chart","traders","history"].forEach(t=>{
+        document.getElementById("nav"+cap(t)).classList.remove("active");
+      });
+      document.getElementById("nav"+cap(state.tab)).classList.add("active");
+    }
+    function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+    /* ================================
+       RENDER
+    ================================ */
+    function render(){
+      setActiveNav();
+      if(state.tab === "home") renderHome();
+      if(state.tab === "chart") renderChart();
+      if(state.tab === "traders") renderMyTraders();
+      if(state.tab === "history") renderHistory();
+      saveLocal();
+    }
+
+    /* ================================
+       HOME TAB
+    ================================ */
+    function renderHome(){
+      const ads = state.topTraders || [];
+      let list = "";
+      if(ads.length === 0){
+        list = `<div class="empty">No ads available</div>`;
+      }else{
+        list = ads.map(ad=>`
+          <div class="trader-card">
+            <div class="t-left">
+              <div class="t-name">${ad.name}</div>
+              <div class="t-sub">Limit: <b>$${ad.amount}</b></div>
+            </div>
+
+            <div class="t-mid">
+              <div class="t-return">${ad.returnPct}%</div>
+              <div class="t-return-sub">Return</div>
+            </div>
+
+            <div class="t-right">
+              <button class="btn-small" onclick="hireTrader('${ad.id}')">Hire</button>
+              <div class="fee">Fee: 10%</div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      screen.innerHTML = `
+        <section class="balance-card tilt">
+          <div class="bal-top">
+            <div>
+              <div class="bal-label">TOTAL BALANCE</div>
+              <div class="bal-amt">$${Number(state.balance).toFixed(2)}</div>
+            </div>
+            <div class="shield">
+              <div class="shield-title">100% Refund Guarantee</div>
+              <div class="shield-sub">If trader makes a loss</div>
+            </div>
+          </div>
+
+          <div class="bal-actions">
+            <button class="btn" onclick="openDeposit()">+ Add Money</button>
+            <button class="btn ghost" onclick="openWithdraw()">Withdraw</button>
+          </div>
+
+          <div class="bal-note">
+            “Live charts, real-time updates, and a transparent trading view — all in one place.”
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="sec-title">Top Traders</div>
+          <div class="list">${list}</div>
+        </section>
+      `;
+
+      applyTilt();
+    }
+
+    /* ================================
+       CHART TAB
+    ================================ */
+    function renderChart(){
+      screen.innerHTML = `
+        <section class="section">
+          <div class="sec-title">Chart View</div>
+          <div class="chart-grid">
+
+            <div class="chart-card">
+              <div class="chart-head">
+                <div>BTCUSD</div>
+                <div class="live">LIVE</div>
+              </div>
+              <div class="tv-widget">
+                <div class="tradingview-widget-container">
+                  <div id="tvbtc"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-head">
+                <div>XAUUSD</div>
+                <div class="live">LIVE</div>
+              </div>
+              <div class="tv-widget">
+                <div class="tradingview-widget-container">
+                  <div id="tvxau"></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+      `;
+
+      loadTradingView();
+    }
+
+    function loadTradingView(){
+      if(document.getElementById("tvScript")) return initTV();
+
+      const s = document.createElement("script");
+      s.id = "tvScript";
+      s.src = "https://s3.tradingview.com/tv.js";
+      s.onload = initTV;
+      document.body.appendChild(s);
+
+      function initTV(){
+        try{
+          new TradingView.widget({
+            autosize: true,
+            symbol: "BINANCE:BTCUSDT",
+            interval: "60",
+            timezone: "Etc/UTC",
+            theme: "dark",
+            style: "1",
+            locale: "en",
+            toolbar_bg: "#05070a",
+            enable_publishing: false,
+            hide_top_toolbar: true,
+            hide_legend: true,
+            container_id: "tvbtc"
+          });
+
+          new TradingView.widget({
+            autosize: true,
+            symbol: "OANDA:XAUUSD",
+            interval: "60",
+            timezone: "Etc/UTC",
+            theme: "dark",
+            style: "1",
+            locale: "en",
+            toolbar_bg: "#05070a",
+            enable_publishing: false,
+            hide_top_toolbar: true,
+            hide_legend: true,
+            container_id: "tvxau"
+          });
+        }catch(e){
+          screen.querySelector(".chart-grid").innerHTML = `
+            <div class="empty">
+              TradingView widget blocked. Please check internet connection.
+            </div>`;
+        }
+      }
+    }
+
+    /* ================================
+       MY TRADERS TAB
+    ================================ */
+    function renderMyTraders(){
+      const trades = state.myTrades || [];
+      let html = "";
+
+      if(trades.length === 0){
+        html = `<div class="empty">No active trades</div>`;
+      }else{
+        html = trades.map(t=>`
+          <div class="trade-card ${t.status}">
+            <div class="trade-top">
+              <div class="trade-name">${t.traderName}</div>
+              <div class="trade-badge">${t.status.toUpperCase()}</div>
+            </div>
+            <div class="trade-row">
+              <span>Amount:</span>
+              <b>$${t.amount}</b>
+            </div>
+            <div class="trade-row">
+              <span>Return:</span>
+              <b>${t.returnPct}%</b>
+            </div>
+
+            <div class="trade-result">
+              ${t.status === "ongoing" ? "Trade Ongoing" : ""}
+              ${t.status === "profit" ? "Profit credited successfully" : ""}
+              ${t.status === "loss" ? "Refund process started" : ""}
+            </div>
+          </div>
+        `).join("");
+      }
+
+      screen.innerHTML = `
+        <section class="section">
+          <div class="sec-title">My Traders</div>
+          <div class="list">${html}</div>
+        </section>
+      `;
+    }
+
+    /* ================================
+       HISTORY TAB
+    ================================ */
+    function renderHistory(){
+      // only deposit + withdraw
+      const all = [
+        ...(state.deposits||[]).map(x=>({...x, type:"Deposit"})),
+        ...(state.withdraws||[]).map(x=>({...x, type:"Withdraw"}))
+      ].sort((a,b)=> new Date(b.date)-new Date(a.date));
+
+      let list = "";
+      if(all.length === 0){
+        list = `<div class="empty">No history found</div>`;
+      }else{
+        list = all.map(tx=>`
+          <div class="history-card">
+            <div>
+              <div class="h-type">${tx.type}</div>
+              <div class="h-date">${new Date(tx.date).toLocaleString()}</div>
+            </div>
+            <div class="h-right">
+              <div class="h-amt ${tx.type==="Deposit"?"green":"red"}">$${tx.amount}</div>
+              <div class="h-status ${tx.status}">${tx.status.toUpperCase()}</div>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      screen.innerHTML = `
+        <section class="section">
+          <div class="sec-title">History</div>
+          <div class="list">${list}</div>
+        </section>
+      `;
+    }
+
+    /* ================================
+       DEPOSIT / WITHDRAW
+    ================================ */
+    function openDeposit(){
+      openModal(`
+        <div class="modal-title">Add Money</div>
+        <div class="modal-sub">Copy address and transfer funds</div>
+
+        <div class="addr-block">
+          <div class="addr-title">ERC20</div>
+          <div class="addr-row">
+            <input readonly value="${getDepositAddr("ERC20")}" />
+            <button onclick="copyAddr('${getDepositAddr("ERC20")}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="addr-block">
+          <div class="addr-title">TRC20</div>
+          <div class="addr-row">
+            <input readonly value="${getDepositAddr("TRC20")}" />
+            <button onclick="copyAddr('${getDepositAddr("TRC20")}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="addr-block">
+          <div class="addr-title">BEP20</div>
+          <div class="addr-row">
+            <input readonly value="${getDepositAddr("BEP20")}" />
+            <button onclick="copyAddr('${getDepositAddr("BEP20")}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="modal-line"></div>
+
+        <div class="field">
+          <label>Amount</label>
+          <input id="depAmount" type="number" placeholder="Enter amount" />
+        </div>
+
+        <div class="field">
+          <label>Upload Proof</label>
+          <input id="proof" type="file" />
+        </div>
+
+        <button class="btn full" onclick="submitDeposit()">Submit Deposit</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function getDepositAddr(type){
+      // later backend se aayega
+      // abhi sample
+      if(type==="ERC20") return "0xErc20_System_Address";
+      if(type==="TRC20") return "TTrc20_System_Address";
+      if(type==="BEP20") return "0xBep20_System_Address";
+      return "";
+    }
+
+    async function submitDeposit(){
+      const amt = Number(document.getElementById("depAmount").value || 0);
+      if(amt <= 0) return showToast("Enter valid amount");
+
+      // create pending deposit
+      const tx = {
+        id: "dep_" + Date.now(),
+        amount: amt,
+        status: "pending",
+        date: new Date().toISOString()
+      };
+      state.deposits.push(tx);
+      saveLocal();
+
+      showToast("Deposit submitted. Status: Pending");
+      closeModal();
+
+      // NOTE: approve backend karega later
+      // demo automatic approve after 2 sec (remove later in real)
+      setTimeout(()=>{
+        tx.status = "success";
+        state.balance += amt;
+        saveLocal();
+        showToast("Deposit Approved • Balance Updated");
+        render();
+      }, 2000);
+    }
+
+    function openWithdraw(){
+      openModal(`
+        <div class="modal-title">Withdraw</div>
+        <div class="modal-sub">Minimum withdrawal: $100</div>
+
+        <div class="field">
+          <label>Amount</label>
+          <input id="wdAmount" type="number" placeholder="Enter withdraw amount" />
+        </div>
+
+        <button class="btn full" onclick="submitWithdraw()">Submit Withdraw</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+
+    function submitWithdraw(){
+      const amt = Number(document.getElementById("wdAmount").value || 0);
+      if(amt < 100) return showToast("Minimum withdraw is 100");
+      if(amt > state.balance) return showToast("Insufficient balance");
+
+      state.balance -= amt;
+      const tx = {
+        id:"wd_"+Date.now(),
+        amount: amt,
+        status:"pending",
+        date:new Date().toISOString()
+      };
+      state.withdraws.push(tx);
+      saveLocal();
+      closeModal();
+      showToast("Withdraw Request Submitted • Pending");
+
+      // demo approve after 2 sec
+      setTimeout(()=>{
+        tx.status = "success";
+        saveLocal();
+        showToast("Withdraw Approved • Successful");
+        render();
+      }, 2000);
+    }
+
+    /* ================================
+       HIRE TRADER
+    ================================ */
+    function hireTrader(id){
+      const ad = state.topTraders.find(x=>x.id===id);
+      if(!ad) return showToast("Ad not found");
+
+      openModal(`
+        <div class="modal-title">Confirm Hire</div>
+        <div class="modal-sub">Hire <b>${ad.name}</b> for <b>$${ad.amount}</b></div>
+
+        <button class="btn full" onclick="confirmHire('${id}')">Confirm</button>
+        <button class="btn ghost full" onclick="closeModal()">Cancel</button>
+      `);
+    }
+
+    function confirmHire(id){
+      const ad = state.topTraders.find(x=>x.id===id);
+      if(!ad) return showToast("Ad not found");
+
+      if(state.balance < ad.amount){
+        closeModal();
+        return showToast("Insufficient balance");
+      }
+
+      // cut & lock (simulate: remove balance now)
+      state.balance -= ad.amount;
+
+      // remove ad from list
+      state.topTraders = state.topTraders.filter(x=>x.id!==id);
+
+      // add ongoing trade
+      state.myTrades.push({
+        id: "trade_"+Date.now(),
+        traderName: ad.name,
+        amount: ad.amount,
+        returnPct: ad.returnPct,
+        status: "ongoing"
+      });
+
+      saveLocal();
+      closeModal();
+      showToast("Trader hired • Trade ongoing");
+      render();
+
+      // demo settle after 5 sec
+      setTimeout(()=>{
+        const trade = state.myTrades.find(t=>t.traderName===ad.name && t.status==="ongoing");
+        if(!trade) return;
+
+        // profit settle demo
+        trade.status = "profit";
+        const total = ad.amount + (ad.amount * ad.returnPct / 100);
+        state.balance += total;
+
+        saveLocal();
+        showToast("Trade Profit • Amount credited");
+        render();
+      }, 5000);
+    }
+
+    /* ================================
+       SETTINGS MODALS
+    ================================ */
+    function openWithdrawAddress(){
+      drawer.classList.remove("open");
+      openModal(`
+        <div class="modal-title">Withdrawal Address</div>
+        <div class="modal-sub">Save your wallet addresses</div>
+
+        <div class="field">
+          <label>ERC20 Address</label>
+          <input id="wa1" value="${state.withdrawAddress.ERC20}" placeholder="Enter ERC20 address"/>
+        </div>
+        <div class="field">
+          <label>TRC20 Address</label>
+          <input id="wa2" value="${state.withdrawAddress.TRC20}" placeholder="Enter TRC20 address"/>
+        </div>
+        <div class="field">
+          <label>BEP20 Address</label>
+          <input id="wa3" value="${state.withdrawAddress.BEP20}" placeholder="Enter BEP20 address"/>
+        </div>
+
+        <button class="btn full" onclick="saveWithdrawAddress()">Save</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+    function saveWithdrawAddress(){
+      state.withdrawAddress.ERC20 = document.getElementById("wa1").value.trim();
+      state.withdrawAddress.TRC20 = document.getElementById("wa2").value.trim();
+      state.withdrawAddress.BEP20 = document.getElementById("wa3").value.trim();
+      saveLocal();
+      closeModal();
+      showToast("Withdrawal address saved");
+    }
+
+    function openChangePassword(){
+      drawer.classList.remove("open");
+      openModal(`
+        <div class="modal-title">Change Password</div>
+        <div class="modal-sub">Secure your account</div>
+
+        <div class="field">
+          <label>Old Password</label>
+          <input id="op" type="password" placeholder="Enter old password"/>
+        </div>
+        <div class="field">
+          <label>New Password</label>
+          <input id="np" type="password" placeholder="Enter new password"/>
+        </div>
+
+        <button class="btn full" onclick="changePassword()">Save</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+    function changePassword(){
+      closeModal();
+      showToast("Password updated successfully");
+    }
+
+    function openSupport(){
+      drawer.classList.remove("open");
+      openModal(`
+        <div class="modal-title">Help / Support</div>
+        <div class="modal-sub">Send your message</div>
+
+        <div class="field">
+          <label>Message</label>
+          <textarea id="supportMsg" rows="5" placeholder="Write your issue..."></textarea>
+        </div>
+
+        <button class="btn full" onclick="sendSupport()">Send</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+    }
+    function sendSupport(){
+      closeModal();
+      showToast("Support message sent");
+    }
+
+    function openProfileEdit(){
+      openModal(`
+        <div class="modal-title">Edit Profile</div>
+        <div class="modal-sub">Update name and photo</div>
+
+        <div class="field">
+          <label>Name</label>
+          <input id="pn" value="${user.name}" />
+        </div>
+        <div class="field">
+          <label>Photo</label>
+          <input id="pp" type="file" />
+        </div>
+
+        <button class="btn full" onclick="saveProfile()">Save</button>
+        <button class="btn ghost full" onclick="closeModal()">Close</button>
+      `);
+      profilePop.classList.remove("open");
+    }
+    function saveProfile(){
+      closeModal();
+      showToast("Profile updated");
+    }
+
+    function copyAddr(addr){
+      navigator.clipboard.writeText(addr);
+      showToast("Address copied");
+    }
+
+    /* ================================
+       3D TILT
+    ================================ */
+    function applyTilt(){
+      document.querySelectorAll(".tilt").forEach(el=> tilt(el, 12));
+      document.querySelectorAll(".tilt-mini").forEach(el=> tilt(el, 7));
+    }
+    function tilt(el, strength=10){
+      el.addEventListener("mousemove",(e)=>{
+        const r = el.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        const rx = ((y / r.height) - 0.5) * -strength;
+        const ry = ((x / r.width) - 0.5) * strength;
+        el.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-2px)`;
+      });
+      el.addEventListener("mouseleave",()=>{
+        el.style.transform = "perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px)";
+      });
+    }
+
+    // Seed top traders for demo (remove when backend connect)
+    if((state.topTraders||[]).length === 0){
+      // keep empty as per rule
+      saveLocal();
+    }
+
+    render();
+  </script>
+</body>
+</html>

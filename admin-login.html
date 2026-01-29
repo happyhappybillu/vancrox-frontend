@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VANCROX • Control Panel Login</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./admin.css"/>
+</head>
+<body class="center-page">
+
+  <div class="panel-card">
+    <div class="brand-line">
+      <img src="./assets/logo.png" class="logo" alt="VANCROX"/>
+      <div>
+        <div class="bname">VANCROX</div>
+        <div class="btag">Control Panel</div>
+      </div>
+    </div>
+
+    <h2 class="title">Login</h2>
+    <p class="muted">Verification & Operations Dashboard</p>
+
+    <div class="hr"></div>
+
+    <label class="lbl">Email</label>
+    <input id="email" placeholder="Enter email"/>
+
+    <label class="lbl">Password</label>
+    <input id="pass" type="password" placeholder="Enter password"/>
+
+    <button class="btn full" onclick="doLogin()">Login</button>
+
+    <div class="note">
+      This panel is restricted to authorized team only.
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="./auth.js"></script>
+  <script>
+    const toast=document.getElementById("toast");
+    function showToast(msg){
+      toast.innerText=msg;
+      toast.classList.add("show");
+      setTimeout(()=>toast.classList.remove("show"),2500);
+    }
+
+    // ✅ Default Control Panel user (demo)
+    // backend ready hone pe database se hoga
+    const CONTROL_USER = {
+      email: "panel@vancrox.com",
+      password: "vancrox@haglu",
+      role: "control"
+    };
+
+    function doLogin(){
+      const e=document.getElementById("email").value.trim();
+      const p=document.getElementById("pass").value.trim();
+
+      if(!e || !p) return showToast("Invalid login details");
+
+      if(e===CONTROL_USER.email && p===CONTROL_USER.password){
+        setAuth({ role:"control", email:e, name:"Verification Team" });
+        window.location.href="admin-panel.html";
+      }else{
+        showToast("Invalid login details");
+      }
+    }
+  </script>
+</body>
+</html>
