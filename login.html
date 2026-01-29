@@ -60,10 +60,10 @@
       </div>
     </section>
   </main>
-
   <script src="./auth.js"></script>
+
   <script>
-    // particles
+    // particles only
     const particles = document.getElementById('particles');
     for (let i = 0; i < 60; i++) {
       const p = document.createElement('span');
@@ -74,40 +74,6 @@
       p.style.animationDuration = (6 + Math.random() * 10) + 's';
       particles.appendChild(p);
     }
-
-    const msg = document.getElementById("msg");
-    function show(type, text){
-      msg.className = "msg show " + (type === "ok" ? "ok" : "err");
-      msg.innerText = text;
-    }
-
-    document.getElementById("loginForm").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-
-      const email = document.getElementById("email").value.trim();
-      const password = document.getElementById("password").value.trim();
-
-      if(!email || !password) return show("err","Invalid input. Please try again.");
-
-      const { ok, data } = await api("/api/auth/login", {
-        method:"POST",
-        body: JSON.stringify({ email, password })
-      });
-
-      if(!ok){
-        return show("err", data?.message || "Invalid credentials. Please try again.");
-      }
-
-      saveAuth(data.token, data.user);
-      show("ok","Login successful. Redirecting...");
-
-      setTimeout(()=>{
-        if(data.user.role === "investor") window.location.href = "./investor-dashboard.html";
-        else if(data.user.role === "trader") window.location.href = "./trader-dashboard.html";
-        else if(data.user.role === "admin") window.location.href = "./admin-dashboard.html";
-        else window.location.href = "./index.html";
-      }, 700);
-    });
   </script>
 </body>
 </html>

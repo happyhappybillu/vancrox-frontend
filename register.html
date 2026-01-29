@@ -36,11 +36,13 @@
 
         <div id="msg" class="msg"></div>
 
-        <form id="registerForm" class="form">
+        <!-- ✅ Investor register (auth.js handle karega) -->
+        <form id="registerInvestorForm" class="form">
+
           <div class="field">
             <label>Account Type</label>
             <select id="role" required>
-              <option value="investor">Investor</option>
+              <option value="investor" selected>Investor</option>
               <option value="trader">Trader</option>
             </select>
           </div>
@@ -51,8 +53,13 @@
           </div>
 
           <div class="field">
-            <label>Email / Mobile</label>
-            <input id="email" type="text" placeholder="Enter email or mobile" required />
+            <label>Email</label>
+            <input id="email" type="email" placeholder="Enter email" required />
+          </div>
+
+          <div class="field">
+            <label>Mobile</label>
+            <input id="mobile" type="text" placeholder="Enter mobile number" required />
           </div>
 
           <div class="field">
@@ -70,50 +77,26 @@
             <a href="./index.html#how-it-works">How it works</a>
           </div>
         </form>
+
       </div>
     </section>
   </main>
 
   <script src="./auth.js"></script>
-<script>
-const API_BASE = "https://vancrox-backend.onrender.com";
 
-const form = document.getElementById("registerForm");
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const role = document.getElementById("role").value; // investor / trader
-  const name = document.getElementById("name").value.trim();
-  const contact = document.getElementById("contact").value.trim();
-  const password = document.getElementById("password").value;
-
-  if(!role || !name || !contact || !password){
-    return alert("Invalid details. Please check and try again.");
-  }
-
-  try{
-    const res = await fetch(`${API_BASE}/api/auth/register`, {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({ role, name, contact, password })
-    });
-
-    const data = await res.json();
-
-    if(!res.ok){
-      return alert(data.message || "Registration failed. Try again.");
+  <script>
+    // particles only
+    const particles = document.getElementById('particles');
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('span');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.top = Math.random() * 100 + '%';
+      p.style.animationDelay = (Math.random() * 8) + 's';
+      p.style.animationDuration = (6 + Math.random() * 10) + 's';
+      particles.appendChild(p);
     }
-
-    alert(`Registration successful! Your ID: ${data.userId}`);
-    window.location.href = "./login.html";
-  }
-  catch(err){
-    console.log(err);
-    alert("Server not reachable. Please try again.");
-  }
-});
-</script>
+  </script>
 
 </body>
 </html>

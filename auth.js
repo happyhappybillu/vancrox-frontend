@@ -1,27 +1,32 @@
 /* ===========================
-   VANCROX Frontend Auth (FINAL)
-   - Works with backend API
-   - Proper redirect investor/trader
-   - Strong error handling
-   - Role normalize
-   - UID/TID support
+   VANCROX Auth (FULL & FINAL)
+   - Register/Login
+   - Role detect
+   - Auto redirect dashboard
+   - Works on Netlify + Render
    =========================== */
 
 const API_BASE = "https://vancrox-backend.onrender.com/api";
-// ✅ IMPORTANT: backend me routes /api/... ke andar hain
 
-// ---------- Helpers ----------
+// ---------- helpers ----------
 function $(id) {
   return document.getElementById(id);
 }
 
-function toast(msg) {
-  alert(msg); // simple final
+function showMsg(type, text) {
+  const msg = $("msg");
+  if (!msg) return alert(text);
+
+  msg.className = "msg show " + (type === "ok" ? "ok" : "err");
+  msg.innerText = text;
+}
+
+function normalizeRole(role) {
+  return String(role || "").trim().toLowerCase();
 }
 
 function saveAuth(data) {
-  // expected response example:
-  // { token, role, user: { uid/tid, name, email, mobile } }
+  // store complete response
   localStorage.setItem("vancrox_auth", JSON.stringify(data));
 }
 
@@ -38,41 +43,14 @@ function logout() {
   window.location.href = "login.html";
 }
 
-function normalizeRole(role) {
-  return String(role || "").trim().toLowerCase();
-}
-
 function redirectDashboard(role) {
   const r = normalizeRole(role);
 
-  if (r === "investor") {
-    window.location.href = "investor-dashboard.html";
-    return;
-  }
+  if (r === "investor") return (window.location.href = "investor-dashboard.html");
+  if (r === "trader") return (window.location.href = "trader-dashboard.html");
+  if (r === "admin") return (window.location.href = "admin-dashboard.html");
 
-  if (r === "trader") {
-    window.location.href = "trader-dashboard.html";
-    return;
-  }
-
-  // fallback
   window.location.href = "login.html";
-}
-
-// ---------- Route Protection ----------
-function requireAuth(role) {
-  const auth = getAuth();
-  if (!auth || !auth.role) {
-    window.location.href = "login.html";
-    return;
-  }
-
-  const currentRole = normalizeRole(auth.role);
-
-  if (role && currentRole !== normalizeRole(role)) {
-    redirectDashboard(currentRole);
-    return;
-  }
 }
 
 // ---------- API ----------
@@ -84,9 +62,7 @@ async function api(path, method = "GET", body = null, useAuth = false) {
     if (a?.token) headers["Authorization"] = `Bearer ${a.token}`;
   }
 
-  const url = `${API_BASE}${path}`;
-
-  const res = await fetch(url, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : null,
@@ -100,16 +76,27 @@ async function api(path, method = "GET", body = null, useAuth = false) {
   }
 
   if (!res.ok) {
-    // backend error message
-    throw new Error(data?.message || "Request failed");
+    throw new Error(data?.message || "Invalid request");
   }
 
   return data;
 }
 
-/* ===========================
-   REGISTER (Investor/Trader)
-   =========================== */
+// ---------- ROUTE PROTECT ----------
+function requireAuth(role) {
+  const auth = getAuth();
+  if (!auth?.token || !auth?.role) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  const currentRole = normalizeRole(auth.role);
+  if (role && currentRole !== normalizeRole(role)) {
+    redirectDashboard(currentRole);
+  }
+}
+
+// ---------- REGISTER ----------
 async function handleRegister(e, role) {
   e.preventDefault();
 
@@ -119,7 +106,7 @@ async function handleRegister(e, role) {
   const password = $("password")?.value?.trim();
 
   if (!name || !email || !mobile || !password) {
-    toast("Please fill all details.");
+    showMsg("err", "Invalid input. Please try again.");
     return;
   }
 
@@ -129,33 +116,26 @@ async function handleRegister(e, role) {
       email,
       mobile,
       password,
-      role: normalizeRole(role), // ✅ investor/trader
+      role: normalizeRole(role),
     };
 
-    // ✅ correct route: /api/auth/register
     const res = await api("/auth/register", "POST", payload);
 
-    // ✅ Save token + role + user
     saveAuth(res);
 
-    // ✅ show generated uid/tid if available
-    const uid = res?.user?.uid || res?.user?.UID;
-    const tid = res?.user?.tid || res?.user?.TID;
-    if (uid || tid) {
-      toast(`Registered successfully ✅\nYour ID: ${uid || tid}`);
-    } else {
-      toast("Registered successfully ✅");
-    }
+    const uid = res?.user?.uid || "";
+    const tid = res?.user?.tid || "";
+    const showId = uid || tid;
 
-    redirectDashboard(res.role);
+    showMsg("ok", showId ? `Registered ✅ Your ID: ${showId}` : "Registered ✅");
+
+    setTimeout(() => redirectDashboard(res.role), 700);
   } catch (err) {
-    toast(err.message || "Invalid");
+    showMsg("err", err.message || "Invalid");
   }
 }
 
-/* ===========================
-   LOGIN (Investor/Trader)
-   =========================== */
+// ---------- LOGIN ----------
 async function handleLogin(e) {
   e.preventDefault();
 
@@ -163,40 +143,36 @@ async function handleLogin(e) {
   const password = $("password")?.value?.trim();
 
   if (!emailOrMobile || !password) {
-    toast("Enter Email/Mobile & Password.");
+    showMsg("err", "Invalid input. Please try again.");
     return;
   }
 
   try {
     const payload = { emailOrMobile, password };
 
-    // ✅ correct route: /api/auth/login
     const res = await api("/auth/login", "POST", payload);
 
     saveAuth(res);
 
-    toast("Login success ✅");
-    redirectDashboard(res.role);
+    showMsg("ok", "Login successful ✅ Redirecting...");
+
+    setTimeout(() => redirectDashboard(res.role), 700);
   } catch (err) {
-    toast(err.message || "Invalid");
+    showMsg("err", err.message || "Invalid credentials");
   }
 }
 
-/* ===========================
-   Auto Bind by Page
-   =========================== */
+// ---------- AUTO BIND ----------
 document.addEventListener("DOMContentLoaded", () => {
   // logout
   const logoutBtn = document.querySelector("[data-logout]");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);
 
-  // login page
+  // login form
   const loginForm = $("loginForm");
-  if (loginForm) {
-    loginForm.addEventListener("submit", handleLogin);
-  }
+  if (loginForm) loginForm.addEventListener("submit", handleLogin);
 
-  // register investor
+  // register investor form
   const regInvestor = $("registerInvestorForm");
   if (regInvestor) {
     regInvestor.addEventListener("submit", (e) =>
@@ -204,7 +180,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // register trader
+  // register trader form
   const regTrader = $("registerTraderForm");
   if (regTrader) {
     regTrader.addEventListener("submit", (e) =>
@@ -217,4 +193,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (path.includes("investor-dashboard.html")) requireAuth("investor");
   if (path.includes("trader-dashboard.html")) requireAuth("trader");
+  if (path.includes("admin-dashboard.html")) requireAuth("admin");
 });
