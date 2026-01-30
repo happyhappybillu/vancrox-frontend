@@ -1,5 +1,10 @@
 /* ===========================
    VANCROX Frontend Auth (FINAL)
+   Works with Backend Routes:
+   POST /api/auth/register/investor
+   POST /api/auth/register/trader
+   POST /api/auth/login
+   GET  /api/auth/me
    =========================== */
 
 const API_BASE = "https://vancrox-backend.onrender.com";
@@ -18,7 +23,7 @@ function showMsg(type, text) {
 }
 
 function saveAuth(data) {
-  // Save full response in storage
+  // expected: { success, token, role, uid/tid }
   localStorage.setItem("vancrox_auth", JSON.stringify(data));
 }
 
@@ -38,13 +43,13 @@ function logout() {
 function redirectDashboard(role) {
   if (role === "investor") window.location.href = "./investor-dashboard.html";
   else if (role === "trader") window.location.href = "./trader-dashboard.html";
-  else if (role === "admin") window.location.href = "./admin-panel.html"; // admin direct URL se
   else window.location.href = "./login.html";
 }
 
 // ---------- Route Protection ----------
 function requireAuth(role) {
   const auth = getAuth();
+
   if (!auth || !auth.token || !auth.role) {
     window.location.href = "./login.html";
     return;
@@ -72,54 +77,56 @@ async function api(path, method = "GET", body = null, auth = false) {
 
   const data = await res.json().catch(() => ({}));
 
-  if (!res.ok) {
-    throw new Error(data?.message || "Request failed");
-  }
-
-  return data;
+  return { ok: res.ok, data };
 }
 
 /* ===========================
-   REGISTER
+   REGISTER (Investor/Trader)
    =========================== */
 async function handleRegister(e) {
   e.preventDefault();
 
-  const role = $("role")?.value?.trim(); // investor / trader
+  const role = $("role")?.value?.trim(); // investor/trader
   const name = $("name")?.value?.trim();
   const email = $("email")?.value?.trim();
   const mobile = $("mobile")?.value?.trim();
   const password = $("password")?.value?.trim();
 
-  if (!role || !name || !email || !mobile || !password) {
-    return showMsg("err", "Please fill all details.");
+  if (!role || !name || !password || (!email && !mobile)) {
+    showMsg("err", "Please fill all details correctly.");
+    return;
   }
 
   try {
     const payload = { name, email, mobile, password };
 
-    // ✅ correct endpoints based on role
     const endpoint =
       role === "trader"
         ? "/api/auth/register/trader"
         : "/api/auth/register/investor";
 
-    const res = await api(endpoint, "POST", payload);
+    const { ok, data } = await api(endpoint, "POST", payload);
 
-    // expected backend response:
-    // { success:true, token, role, uid/tid }
-    saveAuth(res);
+    if (!ok) {
+      return showMsg("err", data?.message || "Registration failed.");
+    }
+
+    saveAuth({
+      token: data.token,
+      role: data.role,
+      uid: data.uid || null,
+      tid: data.tid || null,
+    });
 
     showMsg("ok", "Registered successfully ✅ Redirecting...");
-
-    setTimeout(() => redirectDashboard(res.role), 600);
+    setTimeout(() => redirectDashboard(data.role), 600);
   } catch (err) {
-    showMsg("err", err.message || "Invalid request");
+    showMsg("err", "Server error. Try again.");
   }
 }
 
 /* ===========================
-   LOGIN
+   LOGIN (Investor/Trader)
    =========================== */
 async function handleLogin(e) {
   e.preventDefault();
@@ -128,29 +135,38 @@ async function handleLogin(e) {
   const password = $("password")?.value?.trim();
 
   if (!emailOrMobile || !password) {
-    return showMsg("err", "Enter Email/Mobile & Password.");
+    showMsg("err", "Enter Email/Mobile & Password.");
+    return;
   }
 
   try {
     const payload = { emailOrMobile, password };
 
-    const res = await api("/api/auth/login", "POST", payload);
+    const { ok, data } = await api("/api/auth/login", "POST", payload);
 
-    saveAuth(res);
+    if (!ok) {
+      return showMsg("err", data?.message || "Invalid credentials.");
+    }
 
-    showMsg("ok", "Login success ✅ Redirecting...");
+    saveAuth({
+      token: data.token,
+      role: data.role,
+      uid: data.uid || null,
+      tid: data.tid || null,
+    });
 
-    setTimeout(() => redirectDashboard(res.role), 600);
+    showMsg("ok", "Login successful ✅ Redirecting...");
+    setTimeout(() => redirectDashboard(data.role), 600);
   } catch (err) {
-    showMsg("err", err.message || "Invalid");
+    showMsg("err", "Server error. Try again.");
   }
 }
 
 /* ===========================
-   Auto Bind by Page
+   AUTO BIND
    =========================== */
 document.addEventListener("DOMContentLoaded", () => {
-  // logout support
+  // logout button support
   const logoutBtn = document.querySelector("[data-logout]");
   if (logoutBtn) logoutBtn.addEventListener("click", logout);
 
@@ -158,15 +174,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginForm = $("loginForm");
   if (loginForm) loginForm.addEventListener("submit", handleLogin);
 
-  // register page
-  const regForm = $("registerInvestorForm");
+  // register page (single form)
+  const regForm = $("registerInvestorForm") || $("registerForm");
   if (regForm) regForm.addEventListener("submit", handleRegister);
 
   // protect dashboards
   if (window.location.pathname.includes("investor-dashboard.html")) {
     requireAuth("investor");
   }
-
   if (window.location.pathname.includes("trader-dashboard.html")) {
     requireAuth("trader");
   }
