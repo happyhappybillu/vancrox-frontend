@@ -1,10 +1,8 @@
 /* ===========================
    VANCROX Frontend Auth (FINAL)
-   Works with Backend Routes:
-   POST /api/auth/register/investor
-   POST /api/auth/register/trader
-   POST /api/auth/login
-   GET  /api/auth/me
+   ✅ role detect + correct dashboard
+   ✅ auto fetch /me to store name + uid/tid
+   ✅ investor/trader dashboard protection
    =========================== */
 
 const API_BASE = "https://vancrox-backend.onrender.com";
@@ -23,7 +21,6 @@ function showMsg(type, text) {
 }
 
 function saveAuth(data) {
-  // expected: { success, token, role, uid/tid }
   localStorage.setItem("vancrox_auth", JSON.stringify(data));
 }
 
@@ -46,25 +43,11 @@ function redirectDashboard(role) {
   else window.location.href = "./login.html";
 }
 
-// ---------- Route Protection ----------
-function requireAuth(role) {
-  const auth = getAuth();
-
-  if (!auth || !auth.token || !auth.role) {
-    window.location.href = "./login.html";
-    return;
-  }
-
-  if (role && auth.role !== role) {
-    redirectDashboard(auth.role);
-  }
-}
-
 // ---------- API ----------
-async function api(path, method = "GET", body = null, auth = false) {
+async function api(path, method = "GET", body = null, withAuth = false) {
   const headers = { "Content-Type": "application/json" };
 
-  if (auth) {
+  if (withAuth) {
     const a = getAuth();
     if (a?.token) headers["Authorization"] = `Bearer ${a.token}`;
   }
@@ -76,8 +59,52 @@ async function api(path, method = "GET", body = null, auth = false) {
   });
 
   const data = await res.json().catch(() => ({}));
-
   return { ok: res.ok, data };
+}
+
+// ✅ Fetch real user data after login/register
+async function syncMe() {
+  const a = getAuth();
+  if (!a?.token) return null;
+
+  const { ok, data } = await api("/api/auth/me", "GET", null, true);
+  if (!ok) return null;
+
+  // backend: { success:true, user:{} }
+  const user = data?.user || null;
+  if (!user) return null;
+
+  const updated = {
+    ...a,
+    role: user.role || a.role,
+    name: user.name || a.name || "",
+    email: user.email || a.email || "",
+    mobile: user.mobile || a.mobile || "",
+    uid: user.uid || a.uid || 0,
+    tid: user.tid || a.tid || 0,
+  };
+
+  saveAuth(updated);
+  return updated;
+}
+
+// ---------- Route Protection ----------
+async function requireAuth(role) {
+  const auth = getAuth();
+
+  if (!auth || !auth.token || !auth.role) {
+    window.location.href = "./login.html";
+    return;
+  }
+
+  // ✅ auto refresh user profile data
+  await syncMe();
+
+  const refreshed = getAuth();
+
+  if (role && refreshed?.role !== role) {
+    redirectDashboard(refreshed?.role);
+  }
 }
 
 /* ===========================
@@ -108,15 +135,20 @@ async function handleRegister(e) {
     const { ok, data } = await api(endpoint, "POST", payload);
 
     if (!ok) {
-      return showMsg("err", data?.message || "Registration failed.");
+      return showMsg("err", data?.message || "Invalid");
     }
 
+    // ✅ Save token + role
     saveAuth({
       token: data.token,
       role: data.role,
-      uid: data.uid || null,
-      tid: data.tid || null,
+      uid: data.uid || 0,
+      tid: data.tid || 0,
+      name: "", // will update from /me
     });
+
+    // ✅ Sync full profile (name, uid/tid correct)
+    await syncMe();
 
     showMsg("ok", "Registered successfully ✅ Redirecting...");
     setTimeout(() => redirectDashboard(data.role), 600);
@@ -135,7 +167,7 @@ async function handleLogin(e) {
   const password = $("password")?.value?.trim();
 
   if (!emailOrMobile || !password) {
-    showMsg("err", "Enter Email/Mobile & Password.");
+    showMsg("err", "Invalid");
     return;
   }
 
@@ -145,15 +177,22 @@ async function handleLogin(e) {
     const { ok, data } = await api("/api/auth/login", "POST", payload);
 
     if (!ok) {
-      return showMsg("err", data?.message || "Invalid credentials.");
+      return showMsg("err", data?.message || "Invalid");
     }
 
+    // ✅ Save basic auth
     saveAuth({
       token: data.token,
       role: data.role,
-      uid: data.uid || null,
-      tid: data.tid || null,
+      uid: data.uid || 0,
+      tid: data.tid || 0,
+      name: data.name || "", // sometimes backend gives
+      email: data.email || "",
+      mobile: data.mobile || "",
     });
+
+    // ✅ Always refresh from /me (final source of truth)
+    await syncMe();
 
     showMsg("ok", "Login successful ✅ Redirecting...");
     setTimeout(() => redirectDashboard(data.role), 600);
@@ -174,7 +213,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const loginForm = $("loginForm");
   if (loginForm) loginForm.addEventListener("submit", handleLogin);
 
-  // register page (single form)
+  // register page
   const regForm = $("registerInvestorForm") || $("registerForm");
   if (regForm) regForm.addEventListener("submit", handleRegister);
 

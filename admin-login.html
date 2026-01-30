@@ -42,34 +42,50 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- auth.js required -->
   <script src="./auth.js"></script>
+
   <script>
-    const toast=document.getElementById("toast");
+    const toast = document.getElementById("toast");
+
     function showToast(msg){
-      toast.innerText=msg;
+      toast.innerText = msg;
       toast.classList.add("show");
       setTimeout(()=>toast.classList.remove("show"),2500);
     }
 
-    // ✅ Default Control Panel user (demo)
-    // backend ready hone pe database se hoga
-    const CONTROL_USER = {
-      email: "panel@vancrox.com",
-      password: "vancrox@haglu",
-      role: "control"
-    };
+    async function doLogin(){
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("pass").value.trim();
 
-    function doLogin(){
-      const e=document.getElementById("email").value.trim();
-      const p=document.getElementById("pass").value.trim();
+      if(!email || !password) return showToast("Invalid login details");
 
-      if(!e || !p) return showToast("Invalid login details");
+      try {
+        const res = await fetch("https://vancrox-backend.onrender.com/api/auth/admin/login", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ email, password })
+        });
 
-      if(e===CONTROL_USER.email && p===CONTROL_USER.password){
-        setAuth({ role:"control", email:e, name:"Verification Team" });
-        window.location.href="admin-panel.html";
-      }else{
-        showToast("Invalid login details");
+        const data = await res.json().catch(() => ({}));
+
+        if(!res.ok){
+          return showToast(data?.message || "Invalid login details");
+        }
+
+        // ✅ Save auth
+        setAuth({
+          token: data.token,
+          role: "admin",
+          email: data.email,
+          name: data.name || "Admin"
+        });
+
+        showToast("Login success ✅");
+        setTimeout(()=> window.location.href="admin-panel.html", 500);
+
+      } catch (e) {
+        showToast("Server error");
       }
     }
   </script>
