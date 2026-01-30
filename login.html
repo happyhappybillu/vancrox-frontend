@@ -1,27 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Login • VANCROX</title>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./auth.css"/>
+  <link rel="stylesheet" href="./auth.css" />
 </head>
-<body>
 
+<body>
   <div class="bg-orbs"></div>
   <div class="bg-grid"></div>
   <div id="particles"></div>
 
   <header class="nav">
     <div class="brand">
-      <img src="./assets/logo.png" class="brand-logo" alt="VANCROX Logo">
+      <img src="./assets/logo.png" class="brand-logo" alt="VANCROX Logo" />
       <span class="brand-name">VANCROX</span>
     </div>
+
     <div class="nav-actions">
       <a class="btn btn-ghost" href="./index.html">Home</a>
       <a class="btn btn-primary" href="./register.html">Register</a>
@@ -36,6 +37,7 @@
 
         <div id="msg" class="msg"></div>
 
+        <!-- ✅ Login Form (auth.js handle karega) -->
         <form id="loginForm" class="form">
           <div class="field">
             <label>Email / Mobile</label>
@@ -57,9 +59,12 @@
             <a href="./index.html#how-it-works">How it works</a>
           </div>
         </form>
+
       </div>
     </section>
   </main>
+
+  <!-- ✅ MUST: auth.js include -->
   <script src="./auth.js"></script>
 
   <script>
@@ -75,5 +80,6 @@
       particles.appendChild(p);
     }
   </script>
+
 </body>
 </html>

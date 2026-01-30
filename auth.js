@@ -1,102 +1,173 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Register • VANCROX</title>
+/* ===========================
+   VANCROX Frontend Auth (FINAL)
+   =========================== */
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+const API_BASE = "https://vancrox-backend.onrender.com";
 
-  <link rel="stylesheet" href="./auth.css"/>
-</head>
-<body>
+// ---------- Helpers ----------
+function $(id) {
+  return document.getElementById(id);
+}
 
-  <div class="bg-orbs"></div>
-  <div class="bg-grid"></div>
-  <div id="particles"></div>
+function showMsg(type, text) {
+  const msg = $("msg");
+  if (!msg) return alert(text);
 
-  <header class="nav">
-    <div class="brand">
-      <img src="./assets/logo.png" class="brand-logo" alt="VANCROX Logo">
-      <span class="brand-name">VANCROX</span>
-    </div>
-    <div class="nav-actions">
-      <a class="btn btn-ghost" href="./index.html">Home</a>
-      <a class="btn btn-primary" href="./login.html">Login</a>
-    </div>
-  </header>
+  msg.className = "msg show " + (type === "ok" ? "ok" : "err");
+  msg.innerText = text;
+}
 
-  <main class="auth-wrap">
-    <section class="auth-card">
-      <div class="auth-inner">
-        <div class="auth-title">Create Account</div>
-        <div class="auth-sub">Choose account type and start securely.</div>
+function saveAuth(data) {
+  // Save full response in storage
+  localStorage.setItem("vancrox_auth", JSON.stringify(data));
+}
 
-        <div id="msg" class="msg"></div>
+function getAuth() {
+  try {
+    return JSON.parse(localStorage.getItem("vancrox_auth")) || null;
+  } catch {
+    return null;
+  }
+}
 
-        <!-- ✅ Investor register (auth.js handle karega) -->
-        <form id="registerInvestorForm" class="form">
+function logout() {
+  localStorage.removeItem("vancrox_auth");
+  window.location.href = "./login.html";
+}
 
-          <div class="field">
-            <label>Account Type</label>
-            <select id="role" required>
-              <option value="investor" selected>Investor</option>
-              <option value="trader">Trader</option>
-            </select>
-          </div>
+function redirectDashboard(role) {
+  if (role === "investor") window.location.href = "./investor-dashboard.html";
+  else if (role === "trader") window.location.href = "./trader-dashboard.html";
+  else if (role === "admin") window.location.href = "./admin-panel.html"; // admin direct URL se
+  else window.location.href = "./login.html";
+}
 
-          <div class="field">
-            <label>Full Name</label>
-            <input id="name" type="text" placeholder="Enter full name" required />
-          </div>
+// ---------- Route Protection ----------
+function requireAuth(role) {
+  const auth = getAuth();
+  if (!auth || !auth.token || !auth.role) {
+    window.location.href = "./login.html";
+    return;
+  }
 
-          <div class="field">
-            <label>Email</label>
-            <input id="email" type="email" placeholder="Enter email" required />
-          </div>
+  if (role && auth.role !== role) {
+    redirectDashboard(auth.role);
+  }
+}
 
-          <div class="field">
-            <label>Mobile</label>
-            <input id="mobile" type="text" placeholder="Enter mobile number" required />
-          </div>
+// ---------- API ----------
+async function api(path, method = "GET", body = null, auth = false) {
+  const headers = { "Content-Type": "application/json" };
 
-          <div class="field">
-            <label>Password</label>
-            <input id="password" type="password" placeholder="Create password" required />
-          </div>
+  if (auth) {
+    const a = getAuth();
+    if (a?.token) headers["Authorization"] = `Bearer ${a.token}`;
+  }
 
-          <div class="row">
-            <button class="btn btn-primary" type="submit">Register</button>
-            <a class="btn btn-ghost" href="./login.html">Login</a>
-          </div>
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : null,
+  });
 
-          <div class="small-links">
-            <a href="./index.html#security">Security</a>
-            <a href="./index.html#how-it-works">How it works</a>
-          </div>
-        </form>
+  const data = await res.json().catch(() => ({}));
 
-      </div>
-    </section>
-  </main>
+  if (!res.ok) {
+    throw new Error(data?.message || "Request failed");
+  }
 
-  <script src="./auth.js"></script>
+  return data;
+}
 
-  <script>
-    // particles only
-    const particles = document.getElementById('particles');
-    for (let i = 0; i < 60; i++) {
-      const p = document.createElement('span');
-      p.className = 'particle';
-      p.style.left = Math.random() * 100 + '%';
-      p.style.top = Math.random() * 100 + '%';
-      p.style.animationDelay = (Math.random() * 8) + 's';
-      p.style.animationDuration = (6 + Math.random() * 10) + 's';
-      particles.appendChild(p);
-    }
-  </script>
+/* ===========================
+   REGISTER
+   =========================== */
+async function handleRegister(e) {
+  e.preventDefault();
 
-</body>
-</html>
+  const role = $("role")?.value?.trim(); // investor / trader
+  const name = $("name")?.value?.trim();
+  const email = $("email")?.value?.trim();
+  const mobile = $("mobile")?.value?.trim();
+  const password = $("password")?.value?.trim();
+
+  if (!role || !name || !email || !mobile || !password) {
+    return showMsg("err", "Please fill all details.");
+  }
+
+  try {
+    const payload = { name, email, mobile, password };
+
+    // ✅ correct endpoints based on role
+    const endpoint =
+      role === "trader"
+        ? "/api/auth/register/trader"
+        : "/api/auth/register/investor";
+
+    const res = await api(endpoint, "POST", payload);
+
+    // expected backend response:
+    // { success:true, token, role, uid/tid }
+    saveAuth(res);
+
+    showMsg("ok", "Registered successfully ✅ Redirecting...");
+
+    setTimeout(() => redirectDashboard(res.role), 600);
+  } catch (err) {
+    showMsg("err", err.message || "Invalid request");
+  }
+}
+
+/* ===========================
+   LOGIN
+   =========================== */
+async function handleLogin(e) {
+  e.preventDefault();
+
+  const emailOrMobile = $("email")?.value?.trim();
+  const password = $("password")?.value?.trim();
+
+  if (!emailOrMobile || !password) {
+    return showMsg("err", "Enter Email/Mobile & Password.");
+  }
+
+  try {
+    const payload = { emailOrMobile, password };
+
+    const res = await api("/api/auth/login", "POST", payload);
+
+    saveAuth(res);
+
+    showMsg("ok", "Login success ✅ Redirecting...");
+
+    setTimeout(() => redirectDashboard(res.role), 600);
+  } catch (err) {
+    showMsg("err", err.message || "Invalid");
+  }
+}
+
+/* ===========================
+   Auto Bind by Page
+   =========================== */
+document.addEventListener("DOMContentLoaded", () => {
+  // logout support
+  const logoutBtn = document.querySelector("[data-logout]");
+  if (logoutBtn) logoutBtn.addEventListener("click", logout);
+
+  // login page
+  const loginForm = $("loginForm");
+  if (loginForm) loginForm.addEventListener("submit", handleLogin);
+
+  // register page
+  const regForm = $("registerInvestorForm");
+  if (regForm) regForm.addEventListener("submit", handleRegister);
+
+  // protect dashboards
+  if (window.location.pathname.includes("investor-dashboard.html")) {
+    requireAuth("investor");
+  }
+
+  if (window.location.pathname.includes("trader-dashboard.html")) {
+    requireAuth("trader");
+  }
+});
