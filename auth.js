@@ -1,197 +1,102 @@
-/* ===========================
-   VANCROX Auth (FULL & FINAL)
-   - Register/Login
-   - Role detect
-   - Auto redirect dashboard
-   - Works on Netlify + Render
-   =========================== */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Register • VANCROX</title>
 
-const API_BASE = "https://vancrox-backend.onrender.com/api";
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-// ---------- helpers ----------
-function $(id) {
-  return document.getElementById(id);
-}
+  <link rel="stylesheet" href="./auth.css"/>
+</head>
+<body>
 
-function showMsg(type, text) {
-  const msg = $("msg");
-  if (!msg) return alert(text);
+  <div class="bg-orbs"></div>
+  <div class="bg-grid"></div>
+  <div id="particles"></div>
 
-  msg.className = "msg show " + (type === "ok" ? "ok" : "err");
-  msg.innerText = text;
-}
+  <header class="nav">
+    <div class="brand">
+      <img src="./assets/logo.png" class="brand-logo" alt="VANCROX Logo">
+      <span class="brand-name">VANCROX</span>
+    </div>
+    <div class="nav-actions">
+      <a class="btn btn-ghost" href="./index.html">Home</a>
+      <a class="btn btn-primary" href="./login.html">Login</a>
+    </div>
+  </header>
 
-function normalizeRole(role) {
-  return String(role || "").trim().toLowerCase();
-}
+  <main class="auth-wrap">
+    <section class="auth-card">
+      <div class="auth-inner">
+        <div class="auth-title">Create Account</div>
+        <div class="auth-sub">Choose account type and start securely.</div>
 
-function saveAuth(data) {
-  // store complete response
-  localStorage.setItem("vancrox_auth", JSON.stringify(data));
-}
+        <div id="msg" class="msg"></div>
 
-function getAuth() {
-  try {
-    return JSON.parse(localStorage.getItem("vancrox_auth")) || null;
-  } catch {
-    return null;
-  }
-}
+        <!-- ✅ Investor register (auth.js handle karega) -->
+        <form id="registerInvestorForm" class="form">
 
-function logout() {
-  localStorage.removeItem("vancrox_auth");
-  window.location.href = "login.html";
-}
+          <div class="field">
+            <label>Account Type</label>
+            <select id="role" required>
+              <option value="investor" selected>Investor</option>
+              <option value="trader">Trader</option>
+            </select>
+          </div>
 
-function redirectDashboard(role) {
-  const r = normalizeRole(role);
+          <div class="field">
+            <label>Full Name</label>
+            <input id="name" type="text" placeholder="Enter full name" required />
+          </div>
 
-  if (r === "investor") return (window.location.href = "investor-dashboard.html");
-  if (r === "trader") return (window.location.href = "trader-dashboard.html");
-  if (r === "admin") return (window.location.href = "admin-dashboard.html");
+          <div class="field">
+            <label>Email</label>
+            <input id="email" type="email" placeholder="Enter email" required />
+          </div>
 
-  window.location.href = "login.html";
-}
+          <div class="field">
+            <label>Mobile</label>
+            <input id="mobile" type="text" placeholder="Enter mobile number" required />
+          </div>
 
-// ---------- API ----------
-async function api(path, method = "GET", body = null, useAuth = false) {
-  const headers = { "Content-Type": "application/json" };
+          <div class="field">
+            <label>Password</label>
+            <input id="password" type="password" placeholder="Create password" required />
+          </div>
 
-  if (useAuth) {
-    const a = getAuth();
-    if (a?.token) headers["Authorization"] = `Bearer ${a.token}`;
-  }
+          <div class="row">
+            <button class="btn btn-primary" type="submit">Register</button>
+            <a class="btn btn-ghost" href="./login.html">Login</a>
+          </div>
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : null,
-  });
+          <div class="small-links">
+            <a href="./index.html#security">Security</a>
+            <a href="./index.html#how-it-works">How it works</a>
+          </div>
+        </form>
 
-  let data = {};
-  try {
-    data = await res.json();
-  } catch {
-    data = {};
-  }
+      </div>
+    </section>
+  </main>
 
-  if (!res.ok) {
-    throw new Error(data?.message || "Invalid request");
-  }
+  <script src="./auth.js"></script>
 
-  return data;
-}
+  <script>
+    // particles only
+    const particles = document.getElementById('particles');
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('span');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.top = Math.random() * 100 + '%';
+      p.style.animationDelay = (Math.random() * 8) + 's';
+      p.style.animationDuration = (6 + Math.random() * 10) + 's';
+      particles.appendChild(p);
+    }
+  </script>
 
-// ---------- ROUTE PROTECT ----------
-function requireAuth(role) {
-  const auth = getAuth();
-  if (!auth?.token || !auth?.role) {
-    window.location.href = "login.html";
-    return;
-  }
-
-  const currentRole = normalizeRole(auth.role);
-  if (role && currentRole !== normalizeRole(role)) {
-    redirectDashboard(currentRole);
-  }
-}
-
-// ---------- REGISTER ----------
-async function handleRegister(e, role) {
-  e.preventDefault();
-
-  const name = $("name")?.value?.trim();
-  const email = $("email")?.value?.trim();
-  const mobile = $("mobile")?.value?.trim();
-  const password = $("password")?.value?.trim();
-
-  if (!name || !email || !mobile || !password) {
-    showMsg("err", "Invalid input. Please try again.");
-    return;
-  }
-
-  try {
-    const payload = {
-      name,
-      email,
-      mobile,
-      password,
-      role: normalizeRole(role),
-    };
-
-    const res = await api("/auth/register", "POST", payload);
-
-    saveAuth(res);
-
-    const uid = res?.user?.uid || "";
-    const tid = res?.user?.tid || "";
-    const showId = uid || tid;
-
-    showMsg("ok", showId ? `Registered ✅ Your ID: ${showId}` : "Registered ✅");
-
-    setTimeout(() => redirectDashboard(res.role), 700);
-  } catch (err) {
-    showMsg("err", err.message || "Invalid");
-  }
-}
-
-// ---------- LOGIN ----------
-async function handleLogin(e) {
-  e.preventDefault();
-
-  const emailOrMobile = $("email")?.value?.trim();
-  const password = $("password")?.value?.trim();
-
-  if (!emailOrMobile || !password) {
-    showMsg("err", "Invalid input. Please try again.");
-    return;
-  }
-
-  try {
-    const payload = { emailOrMobile, password };
-
-    const res = await api("/auth/login", "POST", payload);
-
-    saveAuth(res);
-
-    showMsg("ok", "Login successful ✅ Redirecting...");
-
-    setTimeout(() => redirectDashboard(res.role), 700);
-  } catch (err) {
-    showMsg("err", err.message || "Invalid credentials");
-  }
-}
-
-// ---------- AUTO BIND ----------
-document.addEventListener("DOMContentLoaded", () => {
-  // logout
-  const logoutBtn = document.querySelector("[data-logout]");
-  if (logoutBtn) logoutBtn.addEventListener("click", logout);
-
-  // login form
-  const loginForm = $("loginForm");
-  if (loginForm) loginForm.addEventListener("submit", handleLogin);
-
-  // register investor form
-  const regInvestor = $("registerInvestorForm");
-  if (regInvestor) {
-    regInvestor.addEventListener("submit", (e) =>
-      handleRegister(e, "investor")
-    );
-  }
-
-  // register trader form
-  const regTrader = $("registerTraderForm");
-  if (regTrader) {
-    regTrader.addEventListener("submit", (e) =>
-      handleRegister(e, "trader")
-    );
-  }
-
-  // protect dashboards
-  const path = window.location.pathname;
-
-  if (path.includes("investor-dashboard.html")) requireAuth("investor");
-  if (path.includes("trader-dashboard.html")) requireAuth("trader");
-  if (path.includes("admin-dashboard.html")) requireAuth("admin");
-});
+</body>
+</html>
