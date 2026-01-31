@@ -182,14 +182,19 @@ async function handleLogin(e) {
 
     // ✅ Save basic auth
     saveAuth({
-      token: data.token,
-      role: data.role,
-      uid: data.uid || 0,
-      tid: data.tid || 0,
-      name: data.name || "", // sometimes backend gives
-      email: data.email || "",
-      mobile: data.mobile || "",
-    });
+  token: data.token,
+  role: data.role,
+  uid: data.uid || null,
+  tid: data.tid || null,
+  user: {
+    name: data.name || "",
+    email: data.email || "",
+    mobile: data.mobile || "",
+    uid: data.uid || 0,
+    tid: data.tid || 0,
+    role: data.role
+  }
+});
 
     // ✅ Always refresh from /me (final source of truth)
     await syncMe();
