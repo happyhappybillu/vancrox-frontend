@@ -79,16 +79,27 @@
   <!-- TOAST -->
   <div class="toast" id="toast"></div>
 
-  <!-- AUTH -->
-  <script src="./auth.js"></script>
-
   <script>
-    requireAuth("trader");
-
     const content = document.getElementById("content");
     const toast = document.getElementById("toast");
     const modal = document.getElementById("modal");
     const modalCard = document.getElementById("modalCard");
+
+    // ✅ LIVE BACKEND
+    const API_BASE = "https://vancrox-backend.onrender.com";
+
+    // ✅ token from URL (NO localStorage)
+    const url = new URL(window.location.href);
+    const token = url.searchParams.get("token");
+
+    if(!token){
+      alert("Session expired. Please login again.");
+      window.location.href = "./login.html";
+    }
+
+    function logout(){
+      window.location.href = "./login.html";
+    }
 
     function showToast(msg){
       toast.innerText = msg;
@@ -111,25 +122,6 @@
       showToast("Copied ✅");
     }
 
-    // Auth data
-    const auth = getAuth(); // auth.js
-    const token = auth?.token;
-    const role = auth?.role;
-
-    if(!token || role !== "trader"){
-      showToast("Unauthorized. Please login again.");
-      logout();
-    }
-
-    // User info (from login response - best)
-    const user = auth?.user || {};
-    const traderTid = user?.tid || auth?.tid || "----";
-    const traderName = user?.name || "Trader";
-
-    document.getElementById("tName").innerText = traderName;
-    document.getElementById("tidText").innerText = "TID" + traderTid;
-    document.getElementById("avatarT").innerText = (traderName || "T").trim().charAt(0).toUpperCase();
-
     // tabs
     const state = { tab: "dashboard" };
 
@@ -147,22 +139,28 @@
     // ========================
     // BACKEND API
     // ========================
-    const API_BASE = "https://vancrox-backend.onrender.com";
-
     async function api(path, method="GET", body=null){
-      const headers = { "Content-Type":"application/json", "Authorization": "Bearer " + token };
-      const res = await fetch(API_BASE + path, { method, headers, body: body ? JSON.stringify(body) : null });
+      const headers = {
+        "Content-Type":"application/json",
+        "Authorization": "Bearer " + token
+      };
+      const res = await fetch(API_BASE + path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : null
+      });
       const data = await res.json().catch(()=>({}));
       return { ok: res.ok, data };
     }
 
     // ========================
-    // REAL PROFILE + SECURITY/EARNING
+    // LIVE PROFILE + SUMMARY
     // ========================
     let LIVE = {
       securityMoney: 0,
       earning: 0,
-      trades: 0
+      trades: 0,
+      trader: null
     };
 
     async function loadProfile(){
@@ -173,30 +171,21 @@
         return;
       }
 
-      // update auth user so investor name etc future me bhi
-      auth.user = data.trader;
-      localStorage.setItem("vancrox_auth", JSON.stringify(auth));
+      LIVE.trader = data.trader || null;
 
-      document.getElementById("tName").innerText = data.trader?.name || traderName;
-      document.getElementById("tidText").innerText = "TID" + (data.trader?.tid || traderTid);
+      const traderName = LIVE.trader?.name || "Trader";
+      const traderTid = LIVE.trader?.tid || "----";
 
-      // calculate balances using backend rules
-      // securityMoney: SECURITY tx SUCCESS sum (already backend logic aggregate likely)
-      // earning: TRADER_EARNING SUCCESS sum
-      await loadTraderSummary();
+      document.getElementById("tName").innerText = traderName;
+      document.getElementById("tidText").innerText = "TID" + traderTid;
+      document.getElementById("avatarT").innerText = (traderName || "T").trim().charAt(0).toUpperCase();
     }
 
     async function loadTraderSummary(){
-      // We will use trader history endpoint if exists.
-      // If not available, we'll compute from generic tx list (not provided).
-      // For now: call /api/trader/profile returns req.user only, so can't compute.
-      // We'll display 0 unless you have /api/trader/history.
-      // (I will implement fallback where possible)
       LIVE.securityMoney = 0;
       LIVE.earning = 0;
       LIVE.trades = 0;
 
-      // Try trader history endpoint (optional)
       try{
         const h = await api("/api/trader/history");
         if(h.ok && Array.isArray(h.data?.tx)){
@@ -223,7 +212,6 @@
     // LOCK CHECK (SECURITY 100)
     // ========================
     async function checkUnlocked(){
-      // Trader features locked until securityMoney >= 100
       if(Number(LIVE.securityMoney) < 100){
         renderSecurityLock();
         return false;
@@ -271,13 +259,12 @@
     }
 
     async function openSecurityDeposit(){
-      // address feature is admin-editable, so fetch from backend
       const { ok, data } = await api("/api/investor/system-address");
       const addr = ok ? data.addresses : { erc20:"", trc20:"", bep20:"" };
 
       openModal(`
         <div class="modal-title">Deposit Security Money</div>
-        <p class="muted">Copy address → transfer → upload proof</p>
+        <p class="muted">Copy address → transfer → submit</p>
         <div class="hr"></div>
 
         <div class="addr">
@@ -327,8 +314,6 @@
 
       closeModal();
       showToast("Security deposit requested ✅ (Pending approval)");
-
-      // refresh summary
       await loadTraderSummary();
       render();
     }
@@ -372,7 +357,7 @@
     }
 
     // ========================
-    // ADS (Backend create + list)
+    // ADS
     // ========================
     function renderAds(){
       content.innerHTML = `
@@ -480,9 +465,7 @@
       content.innerHTML = `
         <div class="card">
           <h3>My Inventory</h3>
-          <p class="muted">
-            When an investor hires you, the trade appears here.
-          </p>
+          <p class="muted">When an investor hires you, the trade appears here.</p>
           <div class="hr"></div>
           <div id="invList" class="list"><div class="muted center2">Loading...</div></div>
         </div>
@@ -542,14 +525,12 @@
 
       closeModal();
       showToast("Loss selected ✅ Investor refunded + Security reset");
+      await loadTraderSummary();
       renderInventory();
-      loadTraderSummary();
     }
 
-    async function profit(hireId){
-      // 1) select profit
+    function profit(hireId){
       closeModal();
-
       openModal(`
         <div class="modal-title">Select Profit %</div>
         <p class="muted">Enter profit percentage</p>
@@ -576,8 +557,6 @@
 
       closeModal();
       showToast("Profit selected ✅ Investor credited instantly");
-
-      // now ask proof
       openProof(hireId);
     }
 
@@ -702,13 +681,13 @@
       `;
     }
 
-    // ========================
-    // INIT
-    // ========================
+    // init
     (async function init(){
       await loadProfile();
+      await loadTraderSummary();
       render();
     })();
   </script>
+
 </body>
 </html>

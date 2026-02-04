@@ -27,8 +27,8 @@
 
     <div class="hr"></div>
 
-    <label class="lbl">Email</label>
-    <input id="email" placeholder="Enter email"/>
+    <label class="lbl">Email / Username</label>
+    <input id="email" placeholder="Enter email / username"/>
 
     <label class="lbl">Password</label>
     <input id="pass" type="password" placeholder="Enter password"/>
@@ -41,9 +41,6 @@
   </div>
 
   <div class="toast" id="toast"></div>
-
-  <!-- auth.js required -->
-  <script src="./auth.js"></script>
 
   <script>
     const toast = document.getElementById("toast");
@@ -58,13 +55,17 @@
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("pass").value.trim();
 
-      if(!email || !password) return showToast("Invalid login details");
+      if(!email || !password) return showToast("Missing credentials");
 
       try {
-        const res = await fetch("https://vancrox-backend.onrender.com/api/auth/admin/login", {
+        // ✅ IMPORTANT: backend expects emailOrMobile
+        const res = await fetch("https://vancrox-backend.onrender.com/api/auth/login", {
           method: "POST",
           headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({
+            emailOrMobile: email,
+            password: password
+          })
         });
 
         const data = await res.json().catch(() => ({}));
@@ -73,16 +74,16 @@
           return showToast(data?.message || "Invalid login details");
         }
 
-        // ✅ Save auth
-        setAuth({
-          token: data.token,
-          role: "admin",
-          email: data.email,
-          name: data.name || "Admin"
-        });
+        if(data.role !== "admin"){
+          return showToast("Not an admin account");
+        }
 
+        // ✅ NO localStorage ✅
+        // Only redirect with token in URL (temporary)
         showToast("Login success ✅");
-        setTimeout(()=> window.location.href="admin-panel.html", 500);
+        setTimeout(()=> {
+          window.location.href = "admin-panel.html?token=" + encodeURIComponent(data.token);
+        }, 500);
 
       } catch (e) {
         showToast("Server error");
