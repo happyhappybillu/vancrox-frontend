@@ -13,17 +13,19 @@
 </head>
 
 <body>
-  <!-- Premium BG -->
   <div class="bg-orbs"></div>
   <div class="bg-grid"></div>
   <div id="particles"></div>
 
-  <!-- Header -->
+  <!-- HEADER -->
   <header class="dash-header">
     <div class="left">
       <button class="menu-btn" id="menuBtn">☰</button>
+
+      <button class="notif-btn" onclick="openNotifications()">🔔</button>
+
       <div class="profile" id="profileBtn">
-        <img id="profileImg" src="./assets/default-user.png" alt="Profile" />
+        <img id="profileImg" src="./assets/default-user.png"/>
         <div class="profile-meta">
           <div class="welcome">Welcome back</div>
           <div class="name" id="userName">...</div>
@@ -39,7 +41,7 @@
     </div>
   </header>
 
-  <!-- Menu Drawer -->
+  <!-- MENU -->
   <aside class="drawer" id="drawer">
     <div class="drawer-top">
       <div class="drawer-title">Menu</div>
@@ -54,540 +56,200 @@
     <button class="drawer-item danger" onclick="logout()">Logout</button>
   </aside>
 
-  <!-- Profile Dropdown -->
+  <!-- PROFILE POP -->
   <div class="profile-pop" id="profilePop">
     <button onclick="openProfileEdit()">Edit Profile</button>
     <button class="danger" onclick="logout()">Logout</button>
   </div>
 
-  <!-- Main -->
+  <!-- MAIN -->
   <main class="container" id="screen"></main>
 
-  <!-- Bottom Nav -->
+  <!-- BOTTOM NAV -->
   <nav class="bottom-nav">
     <button class="nav-item active" id="navHome" onclick="goTab('home')">Home</button>
-    <button class="nav-item" id="navChart" onclick="goTab('chart')">
-      <span class="dot-red"></span> Chart View
-    </button>
+    <button class="nav-item" id="navChart" onclick="goTab('chart')">Chart View</button>
     <button class="nav-item" id="navTraders" onclick="goTab('traders')">My Traders</button>
     <button class="nav-item" id="navHistory" onclick="goTab('history')">History</button>
   </nav>
 
-  <!-- Modals -->
+  <!-- MODAL -->
   <div class="modal hidden" id="modal">
     <div class="modal-card" id="modalCard"></div>
   </div>
 
-  <!-- Toast -->
+  <!-- TOAST -->
   <div class="toast" id="toast"></div>
 
-  <script>
-    // particles
-    const particles = document.getElementById('particles');
-    for (let i = 0; i < 60; i++) {
-      const p = document.createElement('span');
-      p.className = 'particle';
-      p.style.left = Math.random() * 100 + '%';
-      p.style.top = Math.random() * 100 + '%';
-      p.style.animationDelay = (Math.random() * 8) + 's';
-      p.style.animationDuration = (6 + Math.random() * 10) + 's';
-      particles.appendChild(p);
+<script>
+/* ================= TOKEN ================= */
+const API = "https://vancrox-backend.onrender.com";
+const TOKEN = new URLSearchParams(window.location.search).get("token");
+if(!TOKEN){ location.href="./login.html"; }
+
+/* ================= HELPERS ================= */
+const screen = document.getElementById("screen");
+const modal = document.getElementById("modal");
+const modalCard = document.getElementById("modalCard");
+const toast = document.getElementById("toast");
+
+function showToast(t){
+  toast.innerText=t;
+  toast.classList.add("show");
+  setTimeout(()=>toast.classList.remove("show"),2500);
+}
+function openModal(h){ modalCard.innerHTML=h; modal.classList.remove("hidden"); }
+function closeModal(){ modal.classList.add("hidden"); modalCard.innerHTML=""; }
+modal.onclick=e=>{ if(e.target.id==="modal") closeModal(); };
+
+async function api(path,method="GET",body){
+  const r = await fetch(API+path,{
+    method,
+    headers:{ "Content-Type":"application/json","Authorization":"Bearer "+TOKEN },
+    body: body?JSON.stringify(body):null
+  });
+  const d = await r.json().catch(()=>({}));
+  return {ok:r.ok,data:d};
+}
+
+/* ================= STATE ================= */
+const state = {
+  tab:"home",
+  user:{},
+  balance:0,
+  ads:[],
+  myTrades:[],
+  history:[]
+};
+
+/* ================= INIT ================= */
+(async()=>{
+  const me = await api("/api/auth/me");
+  if(!me.ok) return logout();
+
+  state.user = me.data.user;
+  document.getElementById("userName").innerText = state.user.name;
+  document.getElementById("userId").innerText = "UID"+state.user.uid;
+
+  loadAll();
+})();
+
+/* ================= LOAD ================= */
+async function loadAll(){
+  const hist = await api("/api/investor/history");
+  state.history = hist.data?.tx||[];
+
+  let bal=0;
+  state.history.forEach(t=>{
+    if(t.status==="SUCCESS"){
+      if(t.type==="DEPOSIT") bal+=t.amount;
+      if(t.type==="WITHDRAW") bal-=t.amount;
+      if(t.type==="PROFIT") bal+=t.amount;
     }
-
-    /* ================================
-       CONFIG
-    ================================ */
-    const API_BASE = "https://vancrox-backend.onrender.com";
-
-    // ✅ NO localStorage
-    const url = new URL(window.location.href);
-    const TOKEN = url.searchParams.get("token");
-
-    if(!TOKEN){
-      alert("Session expired. Please login again.");
-      window.location.href = "./login.html";
-    }
-
-    async function apiAuth(path, method="GET", body=null){
-      const res = await fetch(API_BASE + path, {
-        method,
-        headers: {
-          "Content-Type":"application/json",
-          "Authorization": "Bearer " + TOKEN
-        },
-        body: body ? JSON.stringify(body) : null
-      });
-      const data = await res.json().catch(()=>({}));
-      return { ok: res.ok, data };
-    }
-
-    /* ================================
-       GLOBAL STATE
-    ================================ */
-    const screen = document.getElementById("screen");
-
-    const state = {
-      tab: "home",
-      balance: 0,
-      addresses: { erc20:"", trc20:"", bep20:"" },
-      deposits: [],
-      withdraws: [],
-      myTrades: [],
-      topTraders: [],
-      user: { name:"Investor", uid:0, profilePhoto:"" }
-    };
-
-    /* ================================
-       INIT USER HEADER
-    ================================ */
-    function setHeader(){
-      document.getElementById("userName").innerText = state.user?.name || "Investor";
-      const uid = state.user?.uid || 0;
-      document.getElementById("userId").innerText = uid ? ("UID" + uid) : "UID000000";
-
-      if(state.user?.profilePhoto){
-        document.getElementById("profileImg").src = state.user.profilePhoto;
-      }
-    }
-
-    /* ================================
-       UI HELPERS
-    ================================ */
-    const toast = document.getElementById("toast");
-    function showToast(text){
-      toast.innerText = text;
-      toast.classList.add("show");
-      setTimeout(()=>toast.classList.remove("show"), 2600);
-    }
-
-    const modal = document.getElementById("modal");
-    const modalCard = document.getElementById("modalCard");
-    function openModal(html){
-      modalCard.innerHTML = html;
-      modal.classList.remove("hidden");
-    }
-    function closeModal(){
-      modal.classList.add("hidden");
-      modalCard.innerHTML = "";
-    }
-    modal.addEventListener("click",(e)=>{
-      if(e.target.id === "modal") closeModal();
-    });
-
-    /* ================================
-       MENU / PROFILE
-    ================================ */
-    const drawer = document.getElementById("drawer");
-    document.getElementById("menuBtn").onclick = ()=> drawer.classList.add("open");
-    document.getElementById("closeDrawer").onclick = ()=> drawer.classList.remove("open");
-
-    const profilePop = document.getElementById("profilePop");
-    document.getElementById("profileBtn").onclick = ()=> profilePop.classList.toggle("open");
-    document.addEventListener("click",(e)=>{
-      if(!e.target.closest("#profileBtn") && !e.target.closest("#profilePop")){
-        profilePop.classList.remove("open");
-      }
-    });
-
-    function logout(){
-      window.location.href = "./login.html";
-    }
-
-    /* ================================
-       NAV
-    ================================ */
-    function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
-
-    function goTab(tab){
-      state.tab = tab;
-      render();
-    }
-
-    function setActiveNav(){
-      ["home","chart","traders","history"].forEach(t=>{
-        document.getElementById("nav"+cap(t)).classList.remove("active");
-      });
-      document.getElementById("nav"+cap(state.tab)).classList.add("active");
-    }
-
-    /* ================================
-       LOAD BACKEND DATA
-    ================================ */
-    async function loadBackend(){
-      // profile
-      const me = await apiAuth("/api/auth/me");
-      if(me.ok && me.data?.user){
-        const u = me.data.user;
-
-        if(u.role !== "investor"){
-          alert("Unauthorized role");
-          logout();
-          return;
-        }
-
-        state.user = {
-          name: u.name || "Investor",
-          uid: u.uid || 0,
-          profilePhoto: u.profilePhoto || ""
-        };
-
-        setHeader();
-      }else{
-        logout();
-        return;
-      }
-
-      // deposit addresses (your backend uses admin settings)
-      const addr = await apiAuth("/api/wallet/system-address");
-      if(addr.ok){
-        state.addresses = addr.data?.addresses || state.addresses;
-      }
-
-      // history
-      const hist = await apiAuth("/api/investor/history");
-      if(hist.ok){
-        const tx = hist.data?.tx || [];
-
-        state.deposits = tx.filter(x=>x.type==="DEPOSIT").map(x=>({
-          id:x._id,
-          amount:x.amount,
-          status:(x.status||"PENDING").toLowerCase(),
-          date:x.createdAt
-        }));
-
-        state.withdraws = tx.filter(x=>x.type==="WITHDRAW").map(x=>({
-          id:x._id,
-          amount:x.amount,
-          status:(x.status||"PENDING").toLowerCase(),
-          date:x.createdAt
-        }));
-
-        let bal = 0;
-        tx.forEach(x=>{
-          const st = x.status || "PENDING";
-          if(st !== "SUCCESS") return;
-          if(x.type==="DEPOSIT") bal += Number(x.amount||0);
-          if(x.type==="WITHDRAW") bal -= Number(x.amount||0);
-        });
-        state.balance = bal;
-      }
-
-      render();
-    }
-
-    // load everything
-    loadBackend();
-
-    /* ================================
-       RENDER
-    ================================ */
-    function render(){
-      setActiveNav();
-      if(state.tab === "home") renderHome();
-      if(state.tab === "chart") renderChart();
-      if(state.tab === "traders") renderMyTraders();
-      if(state.tab === "history") renderHistory();
-    }
-
-    function renderHome(){
-      screen.innerHTML = `
-        <section class="balance-card tilt">
-          <div class="bal-top">
-            <div>
-              <div class="bal-label">TOTAL BALANCE</div>
-              <div class="bal-amt">$${Number(state.balance).toFixed(2)}</div>
-            </div>
-            <div class="shield">
-              <div class="shield-title">Institutional Protection</div>
-              <div class="shield-sub">Secure. Transparent. Verified.</div>
-            </div>
-          </div>
-
-          <div class="bal-actions">
-            <button class="btn" onclick="openDeposit()">+ Add Money</button>
-            <button class="btn ghost" onclick="openWithdraw()">Withdraw</button>
-          </div>
-
-          <div class="bal-note">
-            “A premium dashboard with real-time tracking and clear transaction flow.”
-          </div>
-        </section>
-
-        <section class="section">
-          <div class="sec-title">Top Traders</div>
-          <div class="list">
-            <div class="empty">Top Traders will appear after traders create ads.</div>
-          </div>
-        </section>
-      `;
-      applyTilt();
-    }
-
-    function renderChart(){
-      screen.innerHTML = `
-        <section class="section">
-          <div class="sec-title">Chart View</div>
-          <div class="empty">Chart widget is optional. (Working)</div>
-        </section>
-      `;
-    }
-
-    function renderMyTraders(){
-      screen.innerHTML = `
-        <section class="section">
-          <div class="sec-title">My Traders</div>
-          <div class="empty">When you hire a trader, it will show here.</div>
-        </section>
-      `;
-    }
-
-    function renderHistory(){
-      const all = [
-        ...(state.deposits||[]).map(x=>({...x, type:"Deposit"})),
-        ...(state.withdraws||[]).map(x=>({...x, type:"Withdraw"}))
-      ].sort((a,b)=> new Date(b.date)-new Date(a.date));
-
-      let list = "";
-      if(all.length === 0){
-        list = `<div class="empty">No history found</div>`;
-      }else{
-        list = all.map(tx=>`
-          <div class="history-card">
-            <div>
-              <div class="h-type">${tx.type}</div>
-              <div class="h-date">${new Date(tx.date).toLocaleString()}</div>
-            </div>
-            <div class="h-right">
-              <div class="h-amt ${tx.type==="Deposit"?"green":"red"}">$${tx.amount}</div>
-              <div class="h-status ${tx.status}">${tx.status.toUpperCase()}</div>
-            </div>
-          </div>
-        `).join("");
-      }
-
-      screen.innerHTML = `
-        <section class="section">
-          <div class="sec-title">History</div>
-          <div class="list">${list}</div>
-        </section>
-      `;
-    }
-
-    /* ================================
-       DEPOSIT / WITHDRAW (BACKEND)
-    ================================ */
-    function openDeposit(){
-      openModal(`
-        <div class="modal-title">Add Money</div>
-        <div class="modal-sub">Smart multi-chain funding</div>
-
-        <div class="addr-block">
-          <div class="addr-title">ERC20</div>
-          <div class="addr-row">
-            <input readonly value="${state.addresses.erc20 || ''}" />
-            <button onclick="copyAddr('${state.addresses.erc20 || ''}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="addr-block">
-          <div class="addr-title">TRC20</div>
-          <div class="addr-row">
-            <input readonly value="${state.addresses.trc20 || ''}" />
-            <button onclick="copyAddr('${state.addresses.trc20 || ''}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="addr-block">
-          <div class="addr-title">BEP20</div>
-          <div class="addr-row">
-            <input readonly value="${state.addresses.bep20 || ''}" />
-            <button onclick="copyAddr('${state.addresses.bep20 || ''}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="modal-line"></div>
-
-        <div class="field">
-          <label>Amount</label>
-          <input id="depAmount" type="number" placeholder="Enter amount" />
-        </div>
-
-        <div class="field">
-          <label>Proof Image (Upload)</label>
-          <input id="proof" type="file" accept="image/*" />
-        </div>
-
-        <button class="btn full" onclick="submitDeposit()">Submit Deposit</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    async function fileToBase64(file){
-      return new Promise((resolve, reject)=>{
-        const reader = new FileReader();
-        reader.onload = ()=>resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    async function submitDeposit(){
-      const amt = Number(document.getElementById("depAmount").value || 0);
-      const file = document.getElementById("proof").files[0];
-
-      if(amt <= 0) return showToast("Enter valid amount");
-      if(!file) return showToast("Upload proof image");
-
-      const proof = await fileToBase64(file);
-
-      const { ok, data } = await apiAuth("/api/wallet/deposit", "POST", { amount: amt, proof });
-
-      if(!ok){
-        showToast(data?.message || "Deposit failed");
-        return;
-      }
-
-      closeModal();
-      showToast("Deposit submitted ✅ Pending admin approval");
-      await loadBackend();
-    }
-
-    function openWithdraw(){
-      openModal(`
-        <div class="modal-title">Withdraw</div>
-        <div class="modal-sub">Withdraw request will be pending until admin approval</div>
-
-        <div class="field">
-          <label>Amount</label>
-          <input id="wdAmount" type="number" placeholder="Enter withdraw amount" />
-        </div>
-
-        <div class="field">
-          <label>Withdraw Address</label>
-          <input id="wdTo" type="text" placeholder="Enter wallet address" />
-        </div>
-
-        <button class="btn full" onclick="submitWithdraw()">Submit Withdraw</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    async function submitWithdraw(){
-      const amt = Number(document.getElementById("wdAmount").value || 0);
-      const withdrawTo = document.getElementById("wdTo").value.trim();
-
-      if(amt < 100) return showToast("Minimum withdraw is 100");
-      if(!withdrawTo) return showToast("Enter withdraw address");
-
-      const { ok, data } = await apiAuth("/api/wallet/withdraw", "POST", { amount: amt, withdrawTo });
-
-      if(!ok){
-        showToast(data?.message || "Withdraw failed");
-        return;
-      }
-
-      closeModal();
-      showToast("Withdraw submitted ✅ Pending admin approval");
-      await loadBackend();
-    }
-
-    /* ================================
-       SETTINGS MODALS
-    ================================ */
-    function openWithdrawAddress(){
-      drawer.classList.remove("open");
-      openModal(`
-        <div class="modal-title">Withdrawal Address</div>
-        <div class="modal-sub">Save your wallet addresses</div>
-        <div class="empty">This feature can be added to backend later.</div>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    function openChangePassword(){
-      drawer.classList.remove("open");
-      openModal(`
-        <div class="modal-title">Change Password</div>
-        <div class="modal-sub">Feature will be added in backend.</div>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    function openSupport(){
-      drawer.classList.remove("open");
-      openModal(`
-        <div class="modal-title">Help / Support</div>
-        <div class="modal-sub">Feature will be added in backend.</div>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    function openProfileEdit(){
-      openModal(`
-        <div class="modal-title">Edit Profile</div>
-        <div class="modal-sub">Update name and photo (temporary frontend only)</div>
-
-        <div class="field">
-          <label>Name</label>
-          <input id="pn" value="${state.user?.name || ''}" />
-        </div>
-        <div class="field">
-          <label>Photo</label>
-          <input id="pp" type="file" accept="image/*" />
-        </div>
-
-        <button class="btn full" onclick="saveProfile()">Save</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-      profilePop.classList.remove("open");
-    }
-
-    async function saveProfile(){
-      const newName = document.getElementById("pn").value.trim();
-      const file = document.getElementById("pp").files[0];
-
-      let photo = "";
-      if(file){
-        photo = await fileToBase64(file);
-      }
-
-      // frontend only display
-      state.user.name = newName || state.user.name;
-      state.user.profilePhoto = photo || state.user.profilePhoto;
-
-      setHeader();
-      closeModal();
-      showToast("Profile updated ✅");
-    }
-
-    function copyAddr(addr){
-      if(!addr) return showToast("Address not set");
-      navigator.clipboard.writeText(addr);
-      showToast("Address copied");
-    }
-
-    /* ================================
-       3D TILT
-    ================================ */
-    function applyTilt(){
-      document.querySelectorAll(".tilt").forEach(el=> tilt(el, 12));
-      document.querySelectorAll(".tilt-mini").forEach(el=> tilt(el, 7));
-    }
-    function tilt(el, strength=10){
-      el.addEventListener("mousemove",(e)=>{
-        const r = el.getBoundingClientRect();
-        const x = e.clientX - r.left;
-        const y = e.clientY - r.top;
-        const rx = ((y / r.height) - 0.5) * -strength;
-        const ry = ((x / r.width) - 0.5) * strength;
-        el.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-2px)`;
-      });
-      el.addEventListener("mouseleave",()=>{
-        el.style.transform = "perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px)";
-      });
-    }
-
-    render();
-  </script>
+  });
+  state.balance=bal;
+
+  const ads = await api("/api/investor/top-traders");
+  state.ads = ads.data?.ads||[];
+
+  const my = await api("/api/investor/my-traders");
+  state.myTrades = my.data?.list||[];
+
+  render();
+}
+
+/* ================= NAV ================= */
+function goTab(t){ state.tab=t; render(); }
+function render(){
+  if(state.tab==="home") renderHome();
+  if(state.tab==="chart") renderChart();
+  if(state.tab==="traders") renderMyTraders();
+  if(state.tab==="history") renderHistory();
+}
+
+/* ================= HOME ================= */
+function renderHome(){
+screen.innerHTML=`
+<div class="balance-card">
+  <div class="bal-label">TOTAL BALANCE</div>
+  <div class="bal-amt">$${state.balance}</div>
+  <div class="bal-note green">100% Refund Guarantee<br/>If trader makes loss</div>
+</div>
+
+<h3>Top Traders</h3>
+${state.ads.length===0?`<div class="empty">No active traders</div>`:
+state.ads.map(a=>`
+<div class="card">
+  <b>${a.traderId.name}</b>
+  <div>Trade${a.minAmount}$</div>
+  <div>Return ${a.profitPercent}%</div>
+  <button onclick="hire('${a._id}',${a.minAmount})">Hire</button>
+</div>
+`).join("")}
+`;
+}
+
+function hire(adId,amt){
+  if(state.balance<amt) return showToast("Low balance");
+  openModal(`
+    <h3>Confirm Trade</h3>
+    <p>Trade${amt}$</p>
+    <button onclick="confirmHire('${adId}')">Confirm</button>
+    <button onclick="closeModal()">Cancel</button>
+  `);
+}
+async function confirmHire(id){
+  await api("/api/investor/hire","POST",{traderAdId:id});
+  closeModal(); showToast("Trade started"); loadAll();
+}
+
+/* ================= CHART ================= */
+function renderChart(){
+screen.innerHTML=`
+<iframe src="https://s.tradingview.com/widgetembed/?symbol=XAUUSD&interval=15&theme=dark" width="100%" height="300"></iframe>
+<iframe src="https://s.tradingview.com/widgetembed/?symbol=BTCUSDT&interval=15&theme=dark" width="100%" height="300"></iframe>
+`;
+}
+
+/* ================= MY TRADERS ================= */
+function renderMyTraders(){
+screen.innerHTML = state.myTrades.length===0
+? `<div class="empty">No active trades</div>`
+: state.myTrades.map(t=>`
+<div class="card">
+<b>${t.traderId.name}</b>
+<div>Status: ${t.status}</div>
+${t.status==="PROFIT"?`<div class="green">Profit Added</div>`:""}
+</div>
+`).join("");
+}
+
+/* ================= HISTORY ================= */
+function renderHistory(){
+screen.innerHTML = state.history.map(h=>`
+<div class="history-card">
+<b>${h.type}</b> $${h.amount}
+<div>${new Date(h.createdAt).toLocaleString()}</div>
+</div>
+`).join("") || `<div class="empty">No history</div>`;
+}
+
+/* ================= NOTIFICATIONS ================= */
+async function openNotifications(){
+  const n = await api("/api/investor/notifications");
+  openModal(`
+    <h3>Notifications</h3>
+    ${(n.data.list||[]).map(x=>`
+      <div class="notif-card">
+        <b>${x.title}</b>
+        <p>${x.message}</p>
+      </div>
+    `).join("")||"No notifications"}
+  `);
+}
+
+/* ================= OTHERS ================= */
+function logout(){ location.href="./login.html"; }
+</script>
 </body>
 </html>
