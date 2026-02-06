@@ -8,686 +8,199 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="./trader.css" />
+  <link rel="stylesheet" href="./trader.css"/>
 </head>
 
 <body>
 
-  <!-- TOP BAR -->
-  <header class="topbar">
-    <div class="brand">
-      <img src="./assets/logo.png" class="logo" alt="VANCROX"/>
-      <div class="btxt">
-        <div class="bname">VANCROX</div>
-        <div class="btag">Trader Panel</div>
-      </div>
+<header class="topbar">
+  <div class="brand">
+    <img src="./assets/logo.png" class="logo"/>
+    <div>
+      <div class="bname">VANCROX</div>
+      <div class="btag">Professional Trader Panel</div>
     </div>
-
-    <div class="top-right">
-      <div class="chip">
-        <div class="chip-label">Trader ID</div>
-        <div class="chip-value" id="tidText">TID----</div>
-      </div>
-
-      <div class="chip">
-        <div class="chip-label">Security Money</div>
-        <div class="chip-value" id="secText">$0.00</div>
-      </div>
-
-      <div class="chip green">
-        <div class="chip-label">Earning</div>
-        <div class="chip-value" id="earnText">$0.00</div>
-      </div>
-    </div>
-  </header>
-
-  <!-- LAYOUT -->
-  <main class="layout">
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-      <div class="profile">
-        <div class="avatar" id="avatarT">T</div>
-        <div class="pinfo">
-          <div class="pname" id="tName">Trader</div>
-          <div class="plevel">Trades <b id="tTrades">0</b></div>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <button class="nav-btn active" id="navDash" onclick="go('dashboard')">Dashboard</button>
-        <button class="nav-btn" id="navAds" onclick="go('ads')">Run Ad Free</button>
-        <button class="nav-btn" id="navInv" onclick="go('inventory')">My Inventory</button>
-        <button class="nav-btn" id="navHist" onclick="go('history')">History</button>
-        <button class="nav-btn" id="navMenu" onclick="go('menu')">Menu</button>
-      </nav>
-
-      <button class="logout" onclick="logout()">Logout</button>
-    </aside>
-
-    <!-- CONTENT -->
-    <section class="content" id="content"></section>
-
-  </main>
-
-  <!-- MODAL -->
-  <div class="modal hidden" id="modal">
-    <div class="modal-card" id="modalCard"></div>
   </div>
 
-  <!-- TOAST -->
-  <div class="toast" id="toast"></div>
-
-  <script>
-    const content = document.getElementById("content");
-    const toast = document.getElementById("toast");
-    const modal = document.getElementById("modal");
-    const modalCard = document.getElementById("modalCard");
-
-    // ✅ LIVE BACKEND
-    const API_BASE = "https://vancrox-backend.onrender.com";
-
-    // ✅ token from URL (NO localStorage)
-    const url = new URL(window.location.href);
-    const token = url.searchParams.get("token");
-
-    if(!token){
-      alert("Session expired. Please login again.");
-      window.location.href = "./login.html";
-    }
-
-    function logout(){
-      window.location.href = "./login.html";
-    }
-
-    function showToast(msg){
-      toast.innerText = msg;
-      toast.classList.add("show");
-      setTimeout(()=>toast.classList.remove("show"), 2500);
-    }
-
-    function openModal(html){
-      modalCard.innerHTML = html;
-      modal.classList.remove("hidden");
-    }
-    function closeModal(){
-      modal.classList.add("hidden");
-      modalCard.innerHTML = "";
-    }
-    modal.addEventListener("click",(e)=>{ if(e.target.id==="modal") closeModal(); });
-
-    function copy(txt){
-      navigator.clipboard.writeText(txt);
-      showToast("Copied ✅");
-    }
-
-    // tabs
-    const state = { tab: "dashboard" };
-
-    function setActiveNav(){
-      const map = {dashboard:"navDash", ads:"navAds", inventory:"navInv", history:"navHist", menu:"navMenu"};
-      Object.values(map).forEach(id=>document.getElementById(id).classList.remove("active"));
-      document.getElementById(map[state.tab])?.classList.add("active");
-    }
-
-    function go(tab){
-      state.tab = tab;
-      render();
-    }
-
-    // ========================
-    // BACKEND API
-    // ========================
-    async function api(path, method="GET", body=null){
-      const headers = {
-        "Content-Type":"application/json",
-        "Authorization": "Bearer " + token
-      };
-      const res = await fetch(API_BASE + path, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : null
-      });
-      const data = await res.json().catch(()=>({}));
-      return { ok: res.ok, data };
-    }
-
-    // ========================
-    // LIVE PROFILE + SUMMARY
-    // ========================
-    let LIVE = {
-      securityMoney: 0,
-      earning: 0,
-      trades: 0,
-      trader: null
-    };
-
-    async function loadProfile(){
-      const { ok, data } = await api("/api/trader/profile");
-      if(!ok){
-        showToast(data?.message || "Session expired");
-        logout();
-        return;
-      }
-
-      LIVE.trader = data.trader || null;
-
-      const traderName = LIVE.trader?.name || "Trader";
-      const traderTid = LIVE.trader?.tid || "----";
-
-      document.getElementById("tName").innerText = traderName;
-      document.getElementById("tidText").innerText = "TID" + traderTid;
-      document.getElementById("avatarT").innerText = (traderName || "T").trim().charAt(0).toUpperCase();
-    }
-
-    async function loadTraderSummary(){
-      LIVE.securityMoney = 0;
-      LIVE.earning = 0;
-      LIVE.trades = 0;
-
-      try{
-        const h = await api("/api/trader/history");
-        if(h.ok && Array.isArray(h.data?.tx)){
-          const tx = h.data.tx;
-
-          LIVE.securityMoney = tx
-            .filter(t=>t.type==="SECURITY" && t.status==="SUCCESS")
-            .reduce((s,t)=> s + Number(t.amount||0), 0);
-
-          LIVE.earning = tx
-            .filter(t=>t.type==="TRADER_EARNING" && t.status==="SUCCESS")
-            .reduce((s,t)=> s + Number(t.amount||0), 0);
-
-          LIVE.trades = tx.filter(t=>t.type==="TRADER_EARNING" && t.status==="SUCCESS").length;
-        }
-      }catch(e){}
-
-      document.getElementById("secText").innerText = "$" + Number(LIVE.securityMoney).toFixed(2);
-      document.getElementById("earnText").innerText = "$" + Number(LIVE.earning).toFixed(2);
-      document.getElementById("tTrades").innerText = LIVE.trades;
-    }
-
-    // ========================
-    // LOCK CHECK (SECURITY 100)
-    // ========================
-    async function checkUnlocked(){
-      if(Number(LIVE.securityMoney) < 100){
-        renderSecurityLock();
-        return false;
-      }
-      return true;
-    }
-
-    // ========================
-    // RENDER
-    // ========================
-    async function render(){
-      setActiveNav();
-      await loadTraderSummary();
-
-      const unlocked = await checkUnlocked();
-      if(!unlocked) return;
-
-      if(state.tab==="dashboard") renderDashboard();
-      if(state.tab==="ads") renderAds();
-      if(state.tab==="inventory") await renderInventory();
-      if(state.tab==="history") await renderHistory();
-      if(state.tab==="menu") renderMenu();
-    }
-
-    // ========================
-    // SECURITY DEPOSIT
-    // ========================
-    function renderSecurityLock(){
-      content.innerHTML = `
-        <div class="card center">
-          <h2>Security Deposit Required</h2>
-          <p class="muted">
-            Minimum required: <b>$100</b> Security Money
-          </p>
-
-          <div class="hr"></div>
-
-          <button class="btn full" onclick="openSecurityDeposit()">Deposit Security Money</button>
-
-          <div class="note">
-            After submitting, status will be <b>PENDING</b> until Verification Team approves.
-          </div>
-        </div>
-      `;
-    }
-
-    async function openSecurityDeposit(){
-      const { ok, data } = await api("/api/investor/system-address");
-      const addr = ok ? data.addresses : { erc20:"", trc20:"", bep20:"" };
-
-      openModal(`
-        <div class="modal-title">Deposit Security Money</div>
-        <p class="muted">Copy address → transfer → submit</p>
-        <div class="hr"></div>
-
-        <div class="addr">
-          <div class="addr-title">ERC20</div>
-          <div class="addr-row">
-            <input readonly value="${addr.erc20 || ""}">
-            <button onclick="copy('${addr.erc20 || ""}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="addr">
-          <div class="addr-title">TRC20</div>
-          <div class="addr-row">
-            <input readonly value="${addr.trc20 || ""}">
-            <button onclick="copy('${addr.trc20 || ""}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="addr">
-          <div class="addr-title">BEP20</div>
-          <div class="addr-row">
-            <input readonly value="${addr.bep20 || ""}">
-            <button onclick="copy('${addr.bep20 || ""}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="hr"></div>
-
-        <label class="lbl">Amount</label>
-        <input type="number" id="secAmt" placeholder="Enter amount (min 100)" />
-
-        <button class="btn full" onclick="submitSecurity()">Submit</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    async function submitSecurity(){
-      const amt = Number(document.getElementById("secAmt").value || 0);
-      if(amt < 100) return showToast("Minimum Security Money is 100");
-
-      const { ok, data } = await api("/api/trader/security-deposit", "POST", { amount: amt });
-
-      if(!ok){
-        showToast(data?.message || "Failed");
-        return;
-      }
-
-      closeModal();
-      showToast("Security deposit requested ✅ (Pending approval)");
-      await loadTraderSummary();
-      render();
-    }
-
-    // ========================
-    // DASHBOARD
-    // ========================
-    function renderDashboard(){
-      content.innerHTML = `
-        <div class="grid3">
-          <div class="card">
-            <div class="k">Security Money</div>
-            <div class="v">$${Number(LIVE.securityMoney).toFixed(2)}</div>
-            <div class="muted">Minimum required $100</div>
-          </div>
-
-          <div class="card">
-            <div class="k">Total Earnings</div>
-            <div class="v green">$${Number(LIVE.earning).toFixed(2)}</div>
-            <div class="muted">Earning credited after proof approval</div>
-          </div>
-
-          <div class="card">
-            <div class="k">Trades Completed</div>
-            <div class="v">${LIVE.trades}</div>
-            <div class="muted">From profit proof approvals</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>Important Rules</h3>
-          <div class="hr"></div>
-          <ul class="rules">
-            <li>Security Money deposit is required to unlock features.</li>
-            <li>Security deposit status remains PENDING until approved.</li>
-            <li>Loss → investor refund successful → Security becomes 0.</li>
-            <li>Profit → investor credited instantly → upload proof → pending → approve → trader earning credited.</li>
-          </ul>
-        </div>
-      `;
-    }
-
-    // ========================
-    // ADS
-    // ========================
-    function renderAds(){
-      content.innerHTML = `
-        <div class="card">
-          <div class="between">
-            <h3>Run Ad Free</h3>
-            <div class="muted">Create ads after unlocking</div>
-          </div>
-
-          <div class="hr"></div>
-
-          <div class="note">
-            Fee: <b>10% on profit</b> (after verification)
-          </div>
-
-          <button class="btn" onclick="openAdCreate()">Create Ad</button>
-
-          <div class="hr"></div>
-          <div id="adsList" class="list"><div class="muted center2">Loading...</div></div>
-        </div>
-      `;
-
-      loadAds();
-    }
-
-    async function loadAds(){
-      const el = document.getElementById("adsList");
-      const { ok, data } = await api("/api/trader/my-ads");
-
-      if(!ok){
-        el.innerHTML = `<div class="muted center2">${data?.message || "Failed"}</div>`;
-        return;
-      }
-
-      const ads = data.ads || [];
-      if(ads.length === 0){
-        el.innerHTML = `<div class="muted center2">No ads running</div>`;
-        return;
-      }
-
-      el.innerHTML = ads.map(a=>`
-        <div class="rowitem">
-          <div>
-            <div class="b">${a.title || "Trader Ad"}</div>
-            <div class="muted">Limit: $${a.minAmount} - $${a.maxAmount}</div>
-            <div class="muted">Return: ${a.profitPercent}%</div>
-          </div>
-          <div class="pill green">LIVE</div>
-        </div>
-      `).join("");
-    }
-
-    function openAdCreate(){
-      openModal(`
-        <div class="modal-title">Create Ad</div>
-        <p class="muted">Set Min/Max amount and profit percent</p>
-
-        <div class="hr"></div>
-
-        <label class="lbl">Title</label>
-        <input type="text" id="adTitle" placeholder="Pro Trader Ad"/>
-
-        <label class="lbl">Description</label>
-        <input type="text" id="adDesc" placeholder="Safe profit daily"/>
-
-        <label class="lbl">Min Amount</label>
-        <input type="number" id="adMin" placeholder="50"/>
-
-        <label class="lbl">Max Amount</label>
-        <input type="number" id="adMax" placeholder="5000"/>
-
-        <label class="lbl">Profit %</label>
-        <input type="number" id="adPct" placeholder="25"/>
-
-        <button class="btn full" onclick="createAd()">Confirm</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    async function createAd(){
-      const payload = {
-        title: document.getElementById("adTitle").value.trim(),
-        description: document.getElementById("adDesc").value.trim(),
-        minAmount: Number(document.getElementById("adMin").value || 50),
-        maxAmount: Number(document.getElementById("adMax").value || 5000),
-        profitPercent: Number(document.getElementById("adPct").value || 25),
-      };
-
-      const { ok, data } = await api("/api/trader/ad", "POST", payload);
-
-      if(!ok){
-        showToast(data?.message || "Failed to create ad");
-        return;
-      }
-
-      closeModal();
-      showToast("Ad created ✅");
-      loadAds();
-    }
-
-    // ========================
-    // INVENTORY
-    // ========================
-    async function renderInventory(){
-      content.innerHTML = `
-        <div class="card">
-          <h3>My Inventory</h3>
-          <p class="muted">When an investor hires you, the trade appears here.</p>
-          <div class="hr"></div>
-          <div id="invList" class="list"><div class="muted center2">Loading...</div></div>
-        </div>
-      `;
-
-      const el = document.getElementById("invList");
-      const { ok, data } = await api("/api/trader/inventory");
-
-      if(!ok){
-        el.innerHTML = `<div class="muted center2">${data?.message || "Failed"}</div>`;
-        return;
-      }
-
-      const items = data.items || [];
-      if(items.length === 0){
-        el.innerHTML = `<div class="muted center2">No inventory available</div>`;
-        return;
-      }
-
-      el.innerHTML = items.map(t=>`
-        <div class="inv">
-          <div class="between">
-            <div class="b">${t.investorId?.name || "Investor"}</div>
-            <div class="pill yellow">${(t.status || "HIRED").toUpperCase()}</div>
-          </div>
-
-          <div class="muted">UID: <b>UID${t.investorId?.uid || "----"}</b></div>
-          <div class="muted">Amount: <b>$${t.amount}</b></div>
-          <div class="muted">Profit %: <b>${t.profitPercent || 25}%</b></div>
-
-          <div class="hr"></div>
-
-          <button class="btn sm" onclick="openTrade('${t._id}')">Continue</button>
-        </div>
-      `).join("");
-    }
-
-    function openTrade(hireId){
-      openModal(`
-        <div class="modal-title">Trade Status</div>
-        <p class="muted">Choose Profit or Loss</p>
-        <div class="hr"></div>
-
-        <button class="btn full" onclick="profit('${hireId}')">Profit</button>
-        <button class="btn danger full" onclick="loss('${hireId}')">Loss</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    async function loss(hireId){
-      const { ok, data } = await api("/api/trader/inventory/loss", "POST", { hireId });
-
-      if(!ok){
-        showToast(data?.message || "Failed");
-        return;
-      }
-
-      closeModal();
-      showToast("Loss selected ✅ Investor refunded + Security reset");
-      await loadTraderSummary();
-      renderInventory();
-    }
-
-    function profit(hireId){
-      closeModal();
-      openModal(`
-        <div class="modal-title">Select Profit %</div>
-        <p class="muted">Enter profit percentage</p>
-
-        <div class="hr"></div>
-
-        <label class="lbl">Profit %</label>
-        <input type="number" id="profitPct" placeholder="25"/>
-
-        <button class="btn full" onclick="confirmProfit('${hireId}')">Continue</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    async function confirmProfit(hireId){
-      const pct = Number(document.getElementById("profitPct").value || 25);
-
-      const { ok, data } = await api("/api/trader/inventory/profit", "POST", { hireId, profitPercent: pct });
-
-      if(!ok){
-        showToast(data?.message || "Failed");
-        return;
-      }
-
-      closeModal();
-      showToast("Profit selected ✅ Investor credited instantly");
-      openProof(hireId);
-    }
-
-    async function openProof(hireId){
-      const { ok, data } = await api("/api/investor/system-address");
-      const addr = ok ? data.addresses : { erc20:"", trc20:"", bep20:"" };
-
-      openModal(`
-        <div class="modal-title">Upload Profit Proof</div>
-        <p class="muted">After uploading proof, it will be pending until verification.</p>
-
-        <div class="hr"></div>
-
-        <div class="addr">
-          <div class="addr-title">ERC20</div>
-          <div class="addr-row">
-            <input readonly value="${addr.erc20 || ""}">
-            <button onclick="copy('${addr.erc20 || ""}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="addr">
-          <div class="addr-title">TRC20</div>
-          <div class="addr-row">
-            <input readonly value="${addr.trc20 || ""}">
-            <button onclick="copy('${addr.trc20 || ""}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="addr">
-          <div class="addr-title">BEP20</div>
-          <div class="addr-row">
-            <input readonly value="${addr.bep20 || ""}">
-            <button onclick="copy('${addr.bep20 || ""}')">Copy</button>
-          </div>
-        </div>
-
-        <div class="hr"></div>
-
-        <label class="lbl">Paste Proof Image (Base64)</label>
-        <textarea id="proofText" rows="5" placeholder="Paste proof image base64 here"></textarea>
-
-        <button class="btn full" onclick="submitProof('${hireId}')">Submit Proof</button>
-        <button class="btn ghost full" onclick="closeModal()">Close</button>
-      `);
-    }
-
-    async function submitProof(hireId){
-      const proofImage = (document.getElementById("proofText").value || "").trim();
-      if(!proofImage) return showToast("Proof required");
-
-      const { ok, data } = await api("/api/trader/inventory/proof", "POST", { hireId, proofImage });
-
-      if(!ok){
-        showToast(data?.message || "Failed");
-        return;
-      }
-
-      closeModal();
-      showToast("Proof submitted ✅ Pending Verification");
-      renderInventory();
-    }
-
-    // ========================
-    // HISTORY
-    // ========================
-    async function renderHistory(){
-      content.innerHTML = `
-        <div class="card">
-          <h3>History</h3>
-          <p class="muted">Security + Earnings + Trade actions</p>
-          <div class="hr"></div>
-          <div id="histList" class="list"><div class="muted center2">Loading...</div></div>
-        </div>
-      `;
-
-      const el = document.getElementById("histList");
-      const { ok, data } = await api("/api/trader/history");
-
-      if(!ok){
-        el.innerHTML = `<div class="muted center2">${data?.message || "No history route found"}</div>`;
-        return;
-      }
-
-      const tx = data.tx || [];
-      if(tx.length===0){
-        el.innerHTML = `<div class="muted center2">No history available</div>`;
-        return;
-      }
-
-      el.innerHTML = tx.map(t=>`
-        <div class="rowitem">
-          <div>
-            <div class="b">${t.type}</div>
-            <div class="muted">${new Date(t.createdAt).toLocaleString()}</div>
-            <div class="muted">${t.note || ""}</div>
-          </div>
-          <div>
-            <div class="b">$${Number(t.amount||0).toFixed(2)}</div>
-            <div class="pill ${t.status==="SUCCESS" ? "green" : "yellow"}">${t.status}</div>
-          </div>
-        </div>
-      `).join("");
-    }
-
-    // ========================
-    // MENU
-    // ========================
-    function renderMenu(){
-      content.innerHTML = `
-        <div class="card">
-          <h3>Menu</h3>
-          <div class="hr"></div>
-
-          <button class="btn full" onclick="showToast('Close Account option backend me add hoga')">Close Account</button>
-          <button class="btn ghost full" onclick="logout()">Logout</button>
-
-          <div class="note">
-            Security Money cannot be withdrawn normally. It will be released only when closing account (as per rule).
-          </div>
-        </div>
-      `;
-    }
-
-    // init
-    (async function init(){
-      await loadProfile();
-      await loadTraderSummary();
-      render();
-    })();
-  </script>
+  <div class="top-right">
+    <div class="chip">
+      <div class="chip-label">Trader ID</div>
+      <div class="chip-value" id="tid">TID----</div>
+    </div>
+    <div class="chip">
+      <div class="chip-label">Security Money</div>
+      <div class="chip-value" id="security">$0.00</div>
+    </div>
+    <div class="chip green">
+      <div class="chip-label">Total Earnings</div>
+      <div class="chip-value" id="earning">$0.00</div>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+
+  <aside class="sidebar">
+    <div class="profile">
+      <div class="avatar" id="avatar">T</div>
+      <div>
+        <div class="pname" id="tName">Trader</div>
+        <div class="plevel">Level <b id="level">1</b></div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <button class="nav-btn active" onclick="go('dashboard')">Dashboard</button>
+      <button class="nav-btn" onclick="go('ads')">Run Ad Free</button>
+      <button class="nav-btn" onclick="go('inventory')">My Inventory</button>
+      <button class="nav-btn" onclick="go('history')">History</button>
+      <button class="nav-btn" onclick="go('menu')">Menu</button>
+    </nav>
+
+    <button class="logout" onclick="logout()">Logout</button>
+  </aside>
+
+  <section class="content" id="content"></section>
+</main>
+
+<div class="modal hidden" id="modal">
+  <div class="modal-card" id="modalCard"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "https://vancrox-backend.onrender.com";
+const token = new URL(location.href).searchParams.get("token");
+if(!token){ location.href="./login.html"; }
+
+const content = document.getElementById("content");
+const toast = document.getElementById("toast");
+const modal = document.getElementById("modal");
+const modalCard = document.getElementById("modalCard");
+
+function showToast(t){
+  toast.innerText=t;
+  toast.classList.add("show");
+  setTimeout(()=>toast.classList.remove("show"),2500);
+}
+function openModal(h){ modalCard.innerHTML=h; modal.classList.remove("hidden"); }
+function closeModal(){ modal.classList.add("hidden"); }
+function logout(){ location.href="./login.html"; }
+
+async function api(path,method="GET",body){
+  const r = await fetch(API+path,{
+    method,
+    headers:{
+      "Content-Type":"application/json",
+      "Authorization":"Bearer "+token
+    },
+    body: body?JSON.stringify(body):null
+  });
+  return r.json();
+}
+
+let STATE={tab:"dashboard", trader:null, security:0, earning:0, trades:0};
+
+function go(t){ STATE.tab=t; render(); }
+
+async function loadProfile(){
+  const d = await api("/api/trader/profile");
+  STATE.trader=d.trader;
+  document.getElementById("tName").innerText=d.trader.name;
+  document.getElementById("tid").innerText="TID"+d.trader.tid;
+  document.getElementById("avatar").innerText=d.trader.name[0];
+}
+
+async function loadSummary(){
+  const d = await api("/api/trader/history");
+  const tx=d.tx||[];
+  STATE.security=tx.filter(x=>x.type==="SECURITY"&&x.status==="SUCCESS")
+    .reduce((s,x)=>s+Number(x.amount),0);
+  STATE.earning=tx.filter(x=>x.type==="TRADER_EARNING")
+    .reduce((s,x)=>s+Number(x.amount),0);
+  STATE.trades=tx.filter(x=>x.type==="TRADER_EARNING").length;
+
+  document.getElementById("security").innerText="$"+STATE.security.toFixed(2);
+  document.getElementById("earning").innerText="$"+STATE.earning.toFixed(2);
+  document.getElementById("level").innerText=Math.floor(STATE.trades/10)+1;
+}
+
+function render(){
+  if(STATE.security<100){
+    content.innerHTML=`
+      <div class="card center">
+        <h2>Security Deposit Required</h2>
+        <p class="muted">Minimum 100 USDT required</p>
+        <button class="btn full" onclick="deposit()">Deposit Security Money</button>
+      </div>`;
+    return;
+  }
+
+  if(STATE.tab==="dashboard"){
+    content.innerHTML=`
+      <div class="grid3">
+        <div class="card"><div class="k">Security</div><div class="v">$${STATE.security}</div></div>
+        <div class="card"><div class="k">Earnings</div><div class="v green">$${STATE.earning}</div></div>
+        <div class="card"><div class="k">Trades</div><div class="v">${STATE.trades}</div></div>
+      </div>`;
+  }
+
+  if(STATE.tab==="ads"){
+    content.innerHTML=`
+      <div class="card">
+        <h3>Run Ad Free</h3>
+        <p class="muted">Ad amount = Security Money</p>
+        <button class="btn" onclick="createAd()">Create Ad</button>
+      </div>`;
+  }
+
+  if(STATE.tab==="inventory"){
+    content.innerHTML=`
+      <div class="card">
+        <h3>My Inventory</h3>
+        <div class="muted">Waiting for trader confirmation / profit / loss</div>
+      </div>`;
+  }
+
+  if(STATE.tab==="history"){
+    content.innerHTML=`
+      <div class="card">
+        <h3>Earnings History</h3>
+        <p class="muted">Only profit earnings shown here</p>
+      </div>`;
+  }
+
+  if(STATE.tab==="menu"){
+    content.innerHTML=`
+      <div class="card">
+        <button class="btn full">Withdrawal Address</button>
+        <button class="btn ghost full">Change Password</button>
+        <button class="btn ghost full">Help / Support</button>
+        <button class="btn danger full">Close Account</button>
+      </div>`;
+  }
+}
+
+function deposit(){
+  openModal(`
+    <h3>Deposit Security Money</h3>
+    <input id="amt" placeholder="Min 100"/>
+    <button class="btn full" onclick="submit()">Submit</button>
+  `);
+}
+async function submit(){
+  const amt=document.getElementById("amt").value;
+  await api("/api/trader/security-deposit","POST",{amount:amt});
+  closeModal(); showToast("Requested"); loadSummary(); render();
+}
+
+(async()=>{
+  await loadProfile();
+  await loadSummary();
+  render();
+})();
+</script>
 
 </body>
 </html>
