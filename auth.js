@@ -1,13 +1,15 @@
 /* ===========================
    VANCROX Frontend Auth (FINAL)
-   ✅ role detect + correct dashboard
-   ✅ auto fetch /me to store name + uid/tid
-   ✅ investor/trader dashboard protection
+   ✔ Single source of truth
+   ✔ Register + Login
+   ✔ Role detect (investor / trader)
+   ✔ Correct dashboard redirect
+   ✔ Dashboard protection
    =========================== */
 
 const API_BASE = "https://vancrox-backend.onrender.com";
 
-// ---------- Helpers ----------
+/* ---------- Helpers ---------- */
 function $(id) {
   return document.getElementById(id);
 }
@@ -15,7 +17,6 @@ function $(id) {
 function showMsg(type, text) {
   const msg = $("msg");
   if (!msg) return alert(text);
-
   msg.className = "msg show " + (type === "ok" ? "ok" : "err");
   msg.innerText = text;
 }
@@ -26,7 +27,7 @@ function saveAuth(data) {
 
 function getAuth() {
   try {
-    return JSON.parse(localStorage.getItem("vancrox_auth")) || null;
+    return JSON.parse(localStorage.getItem("vancrox_auth"));
   } catch {
     return null;
   }
@@ -38,18 +39,21 @@ function logout() {
 }
 
 function redirectDashboard(role) {
-  if (role === "investor") window.location.href = "./investor-dashboard.html";
-  else if (role === "trader") window.location.href = "./trader-dashboard.html";
-  else window.location.href = "./login.html";
+  if (role === "investor") {
+    window.location.href = "./investor-dashboard.html";
+  } else if (role === "trader") {
+    window.location.href = "./trader-dashboard.html";
+  } else {
+    window.location.href = "./login.html";
+  }
 }
 
-// ---------- API ----------
+/* ---------- API Helper ---------- */
 async function api(path, method = "GET", body = null, withAuth = false) {
   const headers = { "Content-Type": "application/json" };
-
   if (withAuth) {
     const a = getAuth();
-    if (a?.token) headers["Authorization"] = `Bearer ${a.token}`;
+    if (a?.token) headers.Authorization = `Bearer ${a.token}`;
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -62,171 +66,134 @@ async function api(path, method = "GET", body = null, withAuth = false) {
   return { ok: res.ok, data };
 }
 
-// ✅ Fetch real user data after login/register
+/* ---------- Sync real profile ---------- */
 async function syncMe() {
   const a = getAuth();
-  if (!a?.token) return null;
+  if (!a?.token) return;
 
   const { ok, data } = await api("/api/auth/me", "GET", null, true);
-  if (!ok) return null;
+  if (!ok || !data?.user) return;
 
-  // backend: { success:true, user:{} }
-  const user = data?.user || null;
-  if (!user) return null;
-
-  const updated = {
-    ...a,
-    role: user.role || a.role,
-    name: user.name || a.name || "",
-    email: user.email || a.email || "",
-    mobile: user.mobile || a.mobile || "",
-    uid: user.uid || a.uid || 0,
-    tid: user.tid || a.tid || 0,
-  };
-
-  saveAuth(updated);
-  return updated;
+  saveAuth({
+    token: a.token,
+    role: data.user.role,
+    uid: data.user.uid || null,
+    tid: data.user.tid || null,
+    name: data.user.name || "",
+    email: data.user.email || "",
+    mobile: data.user.mobile || "",
+  });
 }
 
-// ---------- Route Protection ----------
+/* ---------- Route Protection ---------- */
 async function requireAuth(role) {
   const auth = getAuth();
-
   if (!auth || !auth.token || !auth.role) {
     window.location.href = "./login.html";
     return;
   }
 
-  // ✅ auto refresh user profile data
   await syncMe();
+  const fresh = getAuth();
 
-  const refreshed = getAuth();
-
-  if (role && refreshed?.role !== role) {
-    redirectDashboard(refreshed?.role);
+  if (role && fresh.role !== role) {
+    redirectDashboard(fresh.role);
   }
 }
 
 /* ===========================
-   REGISTER (Investor/Trader)
+   REGISTER
    =========================== */
 async function handleRegister(e) {
   e.preventDefault();
 
-  const role = $("role")?.value?.trim(); // investor/trader
-  const name = $("name")?.value?.trim();
-  const email = $("email")?.value?.trim();
-  const mobile = $("mobile")?.value?.trim();
-  const password = $("password")?.value?.trim();
+  const role = $("role").value;
+  const name = $("name").value.trim();
+  const email = $("email").value.trim();
+  const mobile = $("mobile").value.trim();
+  const password = $("password").value.trim();
 
   if (!role || !name || !password || (!email && !mobile)) {
-    showMsg("err", "Please fill all details correctly.");
-    return;
+    return showMsg("err", "Fill all required details");
   }
 
-  try {
-    const payload = { name, email, mobile, password };
+  const endpoint =
+    role === "trader"
+      ? "/api/auth/register/trader"
+      : "/api/auth/register/investor";
 
-    const endpoint =
-      role === "trader"
-        ? "/api/auth/register/trader"
-        : "/api/auth/register/investor";
+  const { ok, data } = await api(endpoint, "POST", {
+    name,
+    email,
+    mobile,
+    password,
+  });
 
-    const { ok, data } = await api(endpoint, "POST", payload);
-
-    if (!ok) {
-      return showMsg("err", data?.message || "Invalid");
-    }
-
-    // ✅ Save token + role
-    saveAuth({
-      token: data.token,
-      role: data.role,
-      uid: data.uid || 0,
-      tid: data.tid || 0,
-      name: "", // will update from /me
-    });
-
-    // ✅ Sync full profile (name, uid/tid correct)
-    await syncMe();
-
-    showMsg("ok", "Registered successfully ✅ Redirecting...");
-    setTimeout(() => redirectDashboard(data.role), 600);
-  } catch (err) {
-    showMsg("err", "Server error. Try again.");
+  if (!ok) {
+    return showMsg("err", data?.message || "Registration failed");
   }
+
+  saveAuth({
+    token: data.token,
+    role: data.role,
+  });
+
+  await syncMe();
+
+  showMsg("ok", "Registered successfully ✅ Redirecting...");
+  setTimeout(() => redirectDashboard(data.role), 600);
 }
 
 /* ===========================
-   LOGIN (Investor/Trader)
+   LOGIN
    =========================== */
 async function handleLogin(e) {
   e.preventDefault();
 
-  const emailOrMobile = $("email")?.value?.trim();
-  const password = $("password")?.value?.trim();
+  const emailOrMobile = $("email").value.trim();
+  const password = $("password").value.trim();
 
   if (!emailOrMobile || !password) {
-    showMsg("err", "Invalid");
-    return;
+    return showMsg("err", "Credentials required");
   }
 
-  try {
-    const payload = { emailOrMobile, password };
+  const { ok, data } = await api("/api/auth/login", "POST", {
+    emailOrMobile,
+    password,
+  });
 
-    const { ok, data } = await api("/api/auth/login", "POST", payload);
-
-    if (!ok) {
-      return showMsg("err", data?.message || "Invalid");
-    }
-
-    // ✅ Save basic auth
-    saveAuth({
-  token: data.token,
-  role: data.role,
-  uid: data.uid || null,
-  tid: data.tid || null,
-  user: {
-    name: data.name || "",
-    email: data.email || "",
-    mobile: data.mobile || "",
-    uid: data.uid || 0,
-    tid: data.tid || 0,
-    role: data.role
+  if (!ok) {
+    return showMsg("err", data?.message || "Login failed");
   }
-});
 
-    // ✅ Always refresh from /me (final source of truth)
-    await syncMe();
+  saveAuth({
+    token: data.token,
+    role: data.role,
+  });
 
-    showMsg("ok", "Login successful ✅ Redirecting...");
-    setTimeout(() => redirectDashboard(data.role), 600);
-  } catch (err) {
-    showMsg("err", "Server error. Try again.");
-  }
+  await syncMe();
+
+  showMsg("ok", "Login successful ✅ Redirecting...");
+  setTimeout(() => redirectDashboard(data.role), 600);
 }
 
 /* ===========================
    AUTO BIND
    =========================== */
 document.addEventListener("DOMContentLoaded", () => {
-  // logout button support
-  const logoutBtn = document.querySelector("[data-logout]");
-  if (logoutBtn) logoutBtn.addEventListener("click", logout);
-
-  // login page
   const loginForm = $("loginForm");
   if (loginForm) loginForm.addEventListener("submit", handleLogin);
 
-  // register page
-  const regForm = $("registerInvestorForm") || $("registerForm");
-  if (regForm) regForm.addEventListener("submit", handleRegister);
+  const registerForm = $("registerForm");
+  if (registerForm) registerForm.addEventListener("submit", handleRegister);
 
-  // protect dashboards
-  if (window.location.pathname.includes("investor-dashboard.html")) {
+  const logoutBtn = document.querySelector("[data-logout]");
+  if (logoutBtn) logoutBtn.addEventListener("click", logout);
+
+  if (location.pathname.includes("investor-dashboard.html")) {
     requireAuth("investor");
   }
-  if (window.location.pathname.includes("trader-dashboard.html")) {
+  if (location.pathname.includes("trader-dashboard.html")) {
     requireAuth("trader");
   }
 });
