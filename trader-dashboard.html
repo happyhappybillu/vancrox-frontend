@@ -2,67 +2,55 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Trader Dashboard • VANCROX</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./trader.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./trader.css"><!-- investor css reuse -->
 </head>
 
 <body>
 
-<header class="topbar">
-  <div class="brand">
-    <img src="./assets/logo.png" class="logo"/>
-    <div>
-      <div class="bname">VANCROX</div>
-      <div class="btag">Professional Trader Panel</div>
+<!-- HEADER -->
+<header class="dash-header">
+  <div class="left">
+    <button class="menu-btn" id="menuBtn">☰</button>
+    <div class="profile">
+      <img id="profileImg" src="./assets/default-user.png">
+      <div class="profile-meta">
+        <div class="welcome">Trader Panel</div>
+        <div class="name" id="traderName">...</div>
+      </div>
     </div>
   </div>
-
-  <div class="top-right">
-    <div class="chip">
-      <div class="chip-label">Trader ID</div>
-      <div class="chip-value" id="tid">TID----</div>
-    </div>
-    <div class="chip">
-      <div class="chip-label">Security Money</div>
-      <div class="chip-value" id="security">$0.00</div>
-    </div>
-    <div class="chip green">
-      <div class="chip-label">Total Earnings</div>
-      <div class="chip-value" id="earning">$0.00</div>
+  <div class="right">
+    <div class="uid-box">
+      <div class="uid-label">Trader ID</div>
+      <div class="uid" id="tid">TID0000</div>
     </div>
   </div>
 </header>
 
-<main class="layout">
+<!-- MENU -->
+<aside class="drawer" id="drawer">
+  <div class="drawer-top">
+    <div class="drawer-title">Menu</div>
+    <button class="drawer-close" id="closeDrawer">✕</button>
+  </div>
 
-  <aside class="sidebar">
-    <div class="profile">
-      <div class="avatar" id="avatar">T</div>
-      <div>
-        <div class="pname" id="tName">Trader</div>
-        <div class="plevel">Level <b id="level">1</b></div>
-      </div>
-    </div>
+  <button class="drawer-item" onclick="goTab('dashboard')">Dashboard</button>
+  <button class="drawer-item" onclick="goTab('inventory')">My Inventory</button>
+  <button class="drawer-item" onclick="goTab('ads')">My Ads</button>
+  <button class="drawer-item" onclick="goTab('history')">Earnings</button>
 
-    <nav class="nav">
-      <button class="nav-btn active" onclick="go('dashboard')">Dashboard</button>
-      <button class="nav-btn" onclick="go('ads')">Run Ad Free</button>
-      <button class="nav-btn" onclick="go('inventory')">My Inventory</button>
-      <button class="nav-btn" onclick="go('history')">History</button>
-      <button class="nav-btn" onclick="go('menu')">Menu</button>
-    </nav>
+  <div class="drawer-line"></div>
+  <button class="drawer-item danger" onclick="logout()">Logout</button>
+</aside>
 
-    <button class="logout" onclick="logout()">Logout</button>
-  </aside>
+<!-- MAIN -->
+<main class="container" id="screen"></main>
 
-  <section class="content" id="content"></section>
-</main>
-
+<!-- MODAL -->
 <div class="modal hidden" id="modal">
   <div class="modal-card" id="modalCard"></div>
 </div>
@@ -70,14 +58,16 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ================= CONFIG ================= */
 const API = "https://vancrox-backend.onrender.com";
-const token = new URL(location.href).searchParams.get("token");
-if(!token){ location.href="./login.html"; }
+const TOKEN = new URLSearchParams(location.search).get("token");
+if(!TOKEN){ location.href="./login.html"; }
 
-const content = document.getElementById("content");
-const toast = document.getElementById("toast");
+/* ================= HELPERS ================= */
+const screen = document.getElementById("screen");
 const modal = document.getElementById("modal");
 const modalCard = document.getElementById("modalCard");
+const toast = document.getElementById("toast");
 
 function showToast(t){
   toast.innerText=t;
@@ -85,122 +75,174 @@ function showToast(t){
   setTimeout(()=>toast.classList.remove("show"),2500);
 }
 function openModal(h){ modalCard.innerHTML=h; modal.classList.remove("hidden"); }
-function closeModal(){ modal.classList.add("hidden"); }
-function logout(){ location.href="./login.html"; }
+function closeModal(){ modal.classList.add("hidden"); modalCard.innerHTML=""; }
+modal.onclick=e=>{ if(e.target.id==="modal") closeModal(); };
 
 async function api(path,method="GET",body){
   const r = await fetch(API+path,{
     method,
     headers:{
       "Content-Type":"application/json",
-      "Authorization":"Bearer "+token
+      "Authorization":"Bearer "+TOKEN
     },
     body: body?JSON.stringify(body):null
   });
-  return r.json();
+  const d = await r.json().catch(()=>({}));
+  return {ok:r.ok,data:d};
 }
 
-let STATE={tab:"dashboard", trader:null, security:0, earning:0, trades:0};
+/* ================= STATE ================= */
+const state = {
+  tab:"dashboard",
+  user:{},
+  security:0,
+  level:1,
+  ads:[],
+  inventory:[],
+  earnings:0,
+  locked:true
+};
 
-function go(t){ STATE.tab=t; render(); }
+/* ================= INIT ================= */
+(async()=>{
+  const me = await api("/api/auth/me");
+  if(!me.ok) return logout();
 
-async function loadProfile(){
-  const d = await api("/api/trader/profile");
-  STATE.trader=d.trader;
-  document.getElementById("tName").innerText=d.trader.name;
-  document.getElementById("tid").innerText="TID"+d.trader.tid;
-  document.getElementById("avatar").innerText=d.trader.name[0];
+  if(me.data.user.role!=="trader"){
+    alert("Unauthorized");
+    return logout();
+  }
+
+  state.user = me.data.user;
+  document.getElementById("traderName").innerText = state.user.name;
+  document.getElementById("tid").innerText = "TID"+state.user.tid;
+
+  await loadAll();
+})();
+
+/* ================= LOAD ================= */
+async function loadAll(){
+  const sec = await api("/api/trader/security-balance");
+  state.security = sec.data?.balance||0;
+  state.locked = state.security < 100;
+
+  const inv = await api("/api/trader/inventory");
+  state.inventory = inv.data?.items||[];
+
+  const ads = await api("/api/trader/my-ads");
+  state.ads = ads.data?.ads||[];
+
+  const earn = await api("/api/trader/earnings");
+  state.earnings = earn.data?.total||0;
+
+  render();
 }
 
-async function loadSummary(){
-  const d = await api("/api/trader/history");
-  const tx=d.tx||[];
-  STATE.security=tx.filter(x=>x.type==="SECURITY"&&x.status==="SUCCESS")
-    .reduce((s,x)=>s+Number(x.amount),0);
-  STATE.earning=tx.filter(x=>x.type==="TRADER_EARNING")
-    .reduce((s,x)=>s+Number(x.amount),0);
-  STATE.trades=tx.filter(x=>x.type==="TRADER_EARNING").length;
-
-  document.getElementById("security").innerText="$"+STATE.security.toFixed(2);
-  document.getElementById("earning").innerText="$"+STATE.earning.toFixed(2);
-  document.getElementById("level").innerText=Math.floor(STATE.trades/10)+1;
+/* ================= NAV ================= */
+function goTab(t){
+  state.tab=t;
+  render();
 }
 
+/* ================= RENDER ================= */
 function render(){
-  if(STATE.security<100){
-    content.innerHTML=`
-      <div class="card center">
-        <h2>Security Deposit Required</h2>
-        <p class="muted">Minimum 100 USDT required</p>
-        <button class="btn full" onclick="deposit()">Deposit Security Money</button>
-      </div>`;
+  if(state.locked){
+    screen.innerHTML = `
+      <div class="empty">
+        <h3>Account Locked</h3>
+        <p>Upload trading history & deposit minimum 100 USDT security</p>
+        <button class="btn" onclick="openHistoryUpload()">Upload Trading History</button>
+        <button class="btn ghost" onclick="openSecurityDeposit()">Deposit Security</button>
+      </div>
+    `;
     return;
   }
 
-  if(STATE.tab==="dashboard"){
-    content.innerHTML=`
-      <div class="grid3">
-        <div class="card"><div class="k">Security</div><div class="v">$${STATE.security}</div></div>
-        <div class="card"><div class="k">Earnings</div><div class="v green">$${STATE.earning}</div></div>
-        <div class="card"><div class="k">Trades</div><div class="v">${STATE.trades}</div></div>
-      </div>`;
-  }
-
-  if(STATE.tab==="ads"){
-    content.innerHTML=`
-      <div class="card">
-        <h3>Run Ad Free</h3>
-        <p class="muted">Ad amount = Security Money</p>
-        <button class="btn" onclick="createAd()">Create Ad</button>
-      </div>`;
-  }
-
-  if(STATE.tab==="inventory"){
-    content.innerHTML=`
-      <div class="card">
-        <h3>My Inventory</h3>
-        <div class="muted">Waiting for trader confirmation / profit / loss</div>
-      </div>`;
-  }
-
-  if(STATE.tab==="history"){
-    content.innerHTML=`
-      <div class="card">
-        <h3>Earnings History</h3>
-        <p class="muted">Only profit earnings shown here</p>
-      </div>`;
-  }
-
-  if(STATE.tab==="menu"){
-    content.innerHTML=`
-      <div class="card">
-        <button class="btn full">Withdrawal Address</button>
-        <button class="btn ghost full">Change Password</button>
-        <button class="btn ghost full">Help / Support</button>
-        <button class="btn danger full">Close Account</button>
-      </div>`;
-  }
+  if(state.tab==="dashboard") renderDashboard();
+  if(state.tab==="inventory") renderInventory();
+  if(state.tab==="ads") renderAds();
+  if(state.tab==="history") renderEarnings();
 }
 
-function deposit(){
-  openModal(`
-    <h3>Deposit Security Money</h3>
-    <input id="amt" placeholder="Min 100"/>
-    <button class="btn full" onclick="submit()">Submit</button>
-  `);
-}
-async function submit(){
-  const amt=document.getElementById("amt").value;
-  await api("/api/trader/security-deposit","POST",{amount:amt});
-  closeModal(); showToast("Requested"); loadSummary(); render();
+/* ================= DASHBOARD ================= */
+function renderDashboard(){
+  screen.innerHTML = `
+    <section class="balance-card">
+      <div class="bal-label">SECURITY MONEY</div>
+      <div class="bal-amt">$${state.security}</div>
+      <div class="bal-note">Your trading capacity is based on security deposit</div>
+    </section>
+
+    <section class="section">
+      <div class="sec-title">Total Earnings</div>
+      <div class="balance-card">
+        <div class="bal-amt green">$${state.earnings}</div>
+      </div>
+    </section>
+  `;
 }
 
-(async()=>{
-  await loadProfile();
-  await loadSummary();
-  render();
-})();
+/* ================= INVENTORY ================= */
+function renderInventory(){
+  screen.innerHTML = state.inventory.length===0
+  ? `<div class="empty">No investors yet</div>`
+  : state.inventory.map(i=>`
+    <div class="trade-card">
+      <div class="trade-top">
+        <div class="trade-name">${i.investorId.name}</div>
+        <div class="trade-badge">${i.status}</div>
+      </div>
+
+      ${
+        i.status==="WAITING_TRADER_CONFIRMATION"
+        ? `
+          <button class="btn-small" onclick="confirmTrade('${i._id}')">Confirm</button>
+          <button class="btn-small ghost" onclick="rejectTrade('${i._id}')">Reject</button>
+        ` : ""
+      }
+
+      ${
+        i.status==="ACTIVE"
+        ? `
+          <button class="btn-small" onclick="selectProfit('${i._id}')">Profit</button>
+          <button class="btn-small ghost" onclick="selectLoss('${i._id}')">Loss</button>
+        ` : ""
+      }
+    </div>
+  `).join("");
+}
+
+/* ================= ADS ================= */
+function renderAds(){
+  screen.innerHTML = `
+    <section class="section">
+      <div class="sec-title">My Ads</div>
+      <button class="btn" onclick="openCreateAd()">Create Ad</button>
+      ${
+        state.ads.map(a=>`
+          <div class="trader-card">
+            <div>${a.title}</div>
+            <div>${a.profitPercent}%</div>
+          </div>
+        `).join("") || "<div class='empty'>No ads</div>"
+      }
+    </section>
+  `;
+}
+
+/* ================= EARNINGS ================= */
+function renderEarnings(){
+  screen.innerHTML = `
+    <div class="empty">
+      Total Earned: $${state.earnings}
+    </div>
+  `;
+}
+
+/* ================= ACTIONS ================= */
+function logout(){
+  location.href="./login.html";
+}
 </script>
-
 </body>
 </html>
