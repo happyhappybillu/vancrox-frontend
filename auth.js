@@ -1,3 +1,4 @@
+
 /* ===========================
    VANCROX Frontend Auth (FINAL)
    ✔ Single source of truth
@@ -51,9 +52,12 @@ function redirectDashboard(role) {
 /* ---------- API Helper ---------- */
 async function api(path, method = "GET", body = null, withAuth = false) {
   const headers = { "Content-Type": "application/json" };
+
   if (withAuth) {
     const a = getAuth();
-    if (a?.token) headers.Authorization = `Bearer ${a.token}`;
+    if (a?.token) {
+      headers.Authorization = `Bearer ${a.token}`;
+    }
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -62,17 +66,21 @@ async function api(path, method = "GET", body = null, withAuth = false) {
     body: body ? JSON.stringify(body) : null,
   });
 
-  const data = await res.json().catch(() => ({}));
+  let data = {};
+  try {
+    data = await res.json();
+  } catch {}
+
   return { ok: res.ok, data };
 }
 
 /* ---------- Sync real profile ---------- */
 async function syncMe() {
   const a = getAuth();
-  if (!a?.token) return;
+  if (!a?.token) return false;
 
   const { ok, data } = await api("/api/auth/me", "GET", null, true);
-  if (!ok || !data?.user) return;
+  if (!ok || !data?.user) return false;
 
   saveAuth({
     token: a.token,
@@ -83,19 +91,25 @@ async function syncMe() {
     email: data.user.email || "",
     mobile: data.user.mobile || "",
   });
+
+  return true;
 }
 
 /* ---------- Route Protection ---------- */
 async function requireAuth(role) {
   const auth = getAuth();
-  if (!auth || !auth.token || !auth.role) {
+  if (!auth?.token || !auth?.role) {
     window.location.href = "./login.html";
     return;
   }
 
-  await syncMe();
-  const fresh = getAuth();
+  const ok = await syncMe();
+  if (!ok) {
+    logout();
+    return;
+  }
 
+  const fresh = getAuth();
   if (role && fresh.role !== role) {
     redirectDashboard(fresh.role);
   }
@@ -129,7 +143,7 @@ async function handleRegister(e) {
     password,
   });
 
-  if (!ok) {
+  if (!ok || !data?.token) {
     return showMsg("err", data?.message || "Registration failed");
   }
 
@@ -162,7 +176,7 @@ async function handleLogin(e) {
     password,
   });
 
-  if (!ok) {
+  if (!ok || !data?.token) {
     return showMsg("err", data?.message || "Login failed");
   }
 
@@ -170,15 +184,6 @@ async function handleLogin(e) {
     token: data.token,
     role: data.role,
   });
-localStorage.setItem("token", data.token);
-localStorage.setItem("role", data.role);
-
-if (data.uid) {
-  localStorage.setItem("uid", data.uid);
-}
-if (data.tid) {
-  localStorage.setItem("tid", data.tid);
-}
 
   await syncMe();
 
