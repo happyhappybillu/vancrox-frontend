@@ -170,6 +170,15 @@ async function handleLogin(e) {
     token: data.token,
     role: data.role,
   });
+localStorage.setItem("token", data.token);
+localStorage.setItem("role", data.role);
+
+if (data.uid) {
+  localStorage.setItem("uid", data.uid);
+}
+if (data.tid) {
+  localStorage.setItem("tid", data.tid);
+}
 
   await syncMe();
 
