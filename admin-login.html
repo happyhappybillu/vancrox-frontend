@@ -11,6 +11,7 @@
 
   <link rel="stylesheet" href="./admin.css"/>
 </head>
+
 <body class="center-page">
 
   <div class="panel-card">
@@ -22,7 +23,7 @@
       </div>
     </div>
 
-    <h2 class="title">Login</h2>
+    <h2 class="title">Admin Login</h2>
     <p class="muted">Verification & Operations Dashboard</p>
 
     <div class="hr"></div>
@@ -36,11 +37,14 @@
     <button class="btn full" onclick="doLogin()">Login</button>
 
     <div class="note">
-      This panel is restricted to authorized team only.
+      Restricted to authorized administrators only.
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- ✅ AUTH SCRIPT -->
+  <script src="./auth.js"></script>
 
   <script>
     const toast = document.getElementById("toast");
@@ -55,34 +59,33 @@
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("pass").value.trim();
 
-      if(!email || !password) return showToast("Missing credentials");
+      if(!email || !password){
+        return showToast("Missing credentials");
+      }
 
       try {
-        // ✅ IMPORTANT: backend expects emailOrMobile
-        const res = await fetch("https://vancrox-backend.onrender.com/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({
-            emailOrMobile: email,
-            password: password
-          })
+        const { ok, data } = await api("/api/auth/login", "POST", {
+          emailOrMobile: email,
+          password: password
         });
 
-        const data = await res.json().catch(() => ({}));
-
-        if(!res.ok){
-          return showToast(data?.message || "Invalid login details");
+        if(!ok){
+          return showToast(data?.message || "Invalid login");
         }
 
         if(data.role !== "admin"){
           return showToast("Not an admin account");
         }
 
-        // ✅ NO localStorage ✅
-        // Only redirect with token in URL (temporary)
-        showToast("Login success ✅");
-        setTimeout(()=> {
-          window.location.href = "admin-panel.html?token=" + encodeURIComponent(data.token);
+        // ✅ save in SAME auth system
+        saveAuth({
+          token: data.token,
+          role: data.role
+        });
+
+        showToast("Login successful ✅");
+        setTimeout(()=>{
+          window.location.href = "./admin-panel.html";
         }, 500);
 
       } catch (e) {
@@ -90,5 +93,6 @@
       }
     }
   </script>
+
 </body>
 </html>

@@ -53,26 +53,15 @@
 
   <div class="toast" id="toast"></div>
 
+<script src="./auth.js"></script>
+<script>
+  requireAuth("admin");
+</script>
+<script src="./admin.js"></script>
   <script>
     const content = document.getElementById("content");
     const adminNameDisplay = document.getElementById("adminName");
 
-    // ✅ LIVE API BASE
-    const API_BASE = "https://vancrox-backend.onrender.com/api";
-
-    // ✅ Token from URL (NO localStorage)
-    const url = new URL(window.location.href);
-    const TOKEN = url.searchParams.get("token");
-
-    if (!TOKEN) {
-      alert("Session expired. Please login again.");
-      window.location.href = "./admin-login.html";
-    }
-
-    // ✅ Logout (NO localStorage)
-    function logout() {
-      window.location.href = "./admin-login.html";
-    }
 
     function showToast(msg){
       const t = document.getElementById("toast");
