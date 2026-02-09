@@ -24,7 +24,7 @@
     </div>
 
     <h2 class="title">Admin Login</h2>
-    <p class="muted">Verification & Operations Dashboard</p>
+    <p class="muted">Restricted access</p>
 
     <div class="hr"></div>
 
@@ -37,16 +37,14 @@
     <button class="btn full" onclick="doLogin()">Login</button>
 
     <div class="note">
-      Restricted to authorized administrators only.
+      Authorized administrators only.
     </div>
   </div>
 
   <div class="toast" id="toast"></div>
 
-  <!-- ✅ AUTH SCRIPT -->
-  <script src="./auth.js"></script>
-
   <script>
+    const API = "https://vancrox-backend.onrender.com";
     const toast = document.getElementById("toast");
 
     function showToast(msg){
@@ -64,12 +62,18 @@
       }
 
       try {
-        const { ok, data } = await api("/api/auth/login", "POST", {
-          emailOrMobile: email,
-          password: password
+        const res = await fetch(API + "/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            emailOrMobile: email,
+            password: password
+          })
         });
 
-        if(!ok){
+        const data = await res.json().catch(()=>({}));
+
+        if(!res.ok){
           return showToast(data?.message || "Invalid login");
         }
 
@@ -77,18 +81,18 @@
           return showToast("Not an admin account");
         }
 
-        // ✅ save in SAME auth system
-        saveAuth({
+        // ✅ SAVE TOKEN
+        localStorage.setItem("vancrox_auth", JSON.stringify({
           token: data.token,
           role: data.role
-        });
+        }));
 
         showToast("Login successful ✅");
         setTimeout(()=>{
           window.location.href = "./admin-panel.html";
         }, 500);
 
-      } catch (e) {
+      } catch {
         showToast("Server error");
       }
     }

@@ -4,7 +4,7 @@
 
 /* ================= CONFIG ================= */
 const API = "https://vancrox-backend.onrender.com";
-const TOKEN = localStorage.getItem("token");
+const TOKEN = new URLSearchParams(window.location.search).get("token");
 
 if(!TOKEN){
   alert("Session expired. Please login again.");

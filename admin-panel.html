@@ -2,270 +2,251 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
+  <title>System Control Panel • VANCROX</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VANCROX • Master Control Panel</title>
 
+  <!-- Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
 
+  <!-- CSS (next step) -->
   <link rel="stylesheet" href="./admin.css"/>
-  <style>
-    .status-pill { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
-    .bg-red { background: #ff4d4d; color: white; }
-    .bg-green { background: #2ecc71; color: white; }
-    .bg-yellow { background: #f1c40f; color: black; }
-    .action-btns { display: flex; gap: 5px; }
-  </style>
 </head>
+
 <body>
+  
 
-  <header class="topbar">
-    <div class="brand">
-      <img src="./assets/logo.png" class="logo" alt="VANCROX"/>
-      <div>
-        <div class="bname">VANCROX</div>
-        <div class="btag">Master Dashboard • Live Server</div>
+<!-- ================= TOP BAR ================= -->
+<header class="sys-topbar">
+  <div class="sys-brand">
+    <div class="logo">V</div>
+    <div>
+      <div class="sys-name">VANCROX</div>
+      <div class="sys-tag">System Control Panel</div>
+    </div>
+  </div>
+
+  <div class="sys-user">
+    <div class="sys-role">System Team</div>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<!-- ================= LAYOUT ================= -->
+<div class="sys-layout">
+
+  <!-- ========== SIDEBAR ========== -->
+  <aside class="sys-sidebar">
+
+    <button class="nav-item active" onclick="go('overview')">Overview</button>
+
+    <div class="nav-title">User Management</div>
+    <button class="nav-item" onclick="go('investors')">Investors</button>
+    <button class="nav-item" onclick="go('traders')">Traders</button>
+
+    <div class="nav-title">Operations</div>
+    <button class="nav-item" onclick="go('pending')">Pending Approvals</button>
+    <button class="nav-item" onclick="go('notifications')">Notifications</button>
+    <button class="nav-item" onclick="go('support')">Support Tickets</button>
+
+    <div class="nav-title">System</div>
+    <button class="nav-item" onclick="go('addresses')">Address Change</button>
+    <button class="nav-item" onclick="go('reports')">Reports</button>
+    <button class="nav-item danger" onclick="logout()">Logout</button>
+
+  </aside>
+
+  <!-- ========== CONTENT ========== -->
+  <main class="sys-content" id="screen">
+
+    <!-- ================= OVERVIEW ================= -->
+    <section id="view-overview" class="view active">
+      <h2>System Overview</h2>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Investors</div>
+          <div class="stat-value" id="statInvestors">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Total Traders</div>
+          <div class="stat-value" id="statTraders">0</div>
+        </div>
+
+        <div class="stat-card warning">
+          <div class="stat-label">Pending Requests</div>
+          <div class="stat-value" id="statPending">0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Total Deposits</div>
+          <div class="stat-value" id="statDeposits">$0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Total Withdrawals</div>
+          <div class="stat-value" id="statWithdraw">$0</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Open Tickets</div>
+          <div class="stat-value" id="statTickets">0</div>
+        </div>
       </div>
-    </div>
-
-    <div class="top-actions">
-      <div class="small">Admin: <b id="adminName">Main Admin</b></div>
-      <button class="btn ghost" onclick="logout()">Logout</button>
-    </div>
-  </header>
-
-  <main class="layout">
-    <aside class="side">
-      <div class="side-title">Management</div>
-      <button class="nav active" id="navInv" onclick="go('investors')">Investors List</button>
-      <button class="nav" id="navTr" onclick="go('traders')">Traders List</button>
-      <button class="nav" id="navPend" onclick="go('pending')">Pending Requests</button>
-      <button class="nav" id="navSup" onclick="go('support')">Support Tickets</button>
-      <button class="nav" id="navAddr" onclick="go('address')">System Wallets</button>
-      <button class="nav" id="navPass" onclick="go('password')">Admin Security</button>
-    </aside>
-
-    <section class="content" id="content">
-      <div class="center2">Loading data from Vancrox Server...</div>
     </section>
+
+    <!-- ================= INVESTORS ================= -->
+    <section id="view-investors" class="view">
+      <h2>Investors</h2>
+
+      <div class="table-tools">
+        <input type="text" placeholder="Search UID / Email"/>
+      </div>
+
+      <table class="sys-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>UID</th>
+            <th>Email</th>
+            <th>Balance</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="investorList">
+          <!-- dynamic -->
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ================= TRADERS ================= -->
+    <section id="view-traders" class="view">
+      <h2>Traders</h2>
+
+      <table class="sys-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>TID</th>
+            <th>Email</th>
+            <th>Verification</th>
+            <th>Security</th>
+            <th>Earning</th>
+            <th>Level</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="traderList">
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ================= PENDING ================= -->
+    <section id="view-pending" class="view">
+      <h2>Pending Approvals</h2>
+
+      <table class="sys-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>ID</th>
+            <th>Role</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Date</th>
+            <th>View</th>
+          </tr>
+        </thead>
+        <tbody id="pendingList">
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ================= NOTIFICATIONS ================= -->
+    <section id="view-notifications" class="view">
+      <h2>Send Notification (Investors)</h2>
+
+      <div class="form-card">
+        <label>Title</label>
+        <input type="text" id="nTitle"/>
+
+        <label>Message</label>
+        <textarea id="nMsg"></textarea>
+
+        <label>Image (optional)</label>
+        <input type="file" id="nImg"/>
+
+        <button class="btn" onclick="sendNotification()">Send</button>
+      </div>
+    </section>
+
+    <!-- ================= SUPPORT ================= -->
+    <section id="view-support" class="view">
+      <h2>Support Tickets</h2>
+
+      <table class="sys-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>ID</th>
+            <th>Role</th>
+            <th>Message</th>
+            <th>Time</th>
+            <th>View</th>
+          </tr>
+        </thead>
+        <tbody id="ticketList">
+        </tbody>
+      </table>
+    </section>
+
+    <!-- ================= ADDRESSES ================= -->
+    <section id="view-addresses" class="view">
+      <h2>System Wallet Addresses</h2>
+
+      <div class="form-card">
+        <label>ERC20</label>
+        <input id="addrErc"/>
+
+        <label>TRC20</label>
+        <input id="addrTrc"/>
+
+        <label>BEP20</label>
+        <input id="addrBep"/>
+
+        <button class="btn" onclick="saveAddresses()">Save</button>
+      </div>
+    </section>
+
+    <!-- ================= REPORTS ================= -->
+    <section id="view-reports" class="view">
+      <h2>Reports & History</h2>
+      <div class="empty">Read-only reports will appear here.</div>
+    </section>
+
   </main>
+</div>
 
-  <div class="toast" id="toast"></div>
-
-<script src="./auth.js"></script>
+<!-- ================= SCRIPT (basic navigation only) ================= -->
+<script>
+function go(view){
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
+  document.getElementById("view-"+view).classList.add("active");
+  event.target.classList.add("active");
+}
+function logout(){
+  location.href = "./login.html";
+}
+</script>
+  <script src="./auth.js"></script>
 <script>
   requireAuth("admin");
 </script>
 <script src="./admin.js"></script>
-  <script>
-    const content = document.getElementById("content");
-    const adminNameDisplay = document.getElementById("adminName");
 
-
-    function showToast(msg){
-      const t = document.getElementById("toast");
-      t.innerText = msg;
-      t.classList.add("show");
-      setTimeout(()=>t.classList.remove("show"), 2500);
-    }
-
-    // ====== LIVE DATA FETCHING ======
-    async function apiCall(path, method = "GET", body = null) {
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${TOKEN}`
-      };
-
-      try {
-        const res = await fetch(`${API_BASE}${path}`, {
-          method,
-          headers,
-          body: body ? JSON.stringify(body) : null
-        });
-
-        const data = await res.json().catch(() => ({}));
-        return data;
-      } catch (e) {
-        showToast("Server Connection Failed");
-        return { success: false };
-      }
-    }
-
-    // ✅ load admin name from /auth/me (master_admin supported)
-    async function loadAdminName() {
-      const headers = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${TOKEN}`
-      };
-
-      try {
-        const res = await fetch(`https://vancrox-backend.onrender.com/api/auth/me`, { headers });
-        const data = await res.json().catch(() => ({}));
-
-        const name = data?.user?.name || "Main Admin";
-        adminNameDisplay.innerText = name;
-      } catch (e) {
-        adminNameDisplay.innerText = "Main Admin";
-      }
-    }
-
-    // ====== NAVIGATION ======
-    let currentTab = "investors";
-    function go(t){
-      currentTab = t;
-      document.querySelectorAll(".nav").forEach(x => x.classList.remove("active"));
-
-      const navMap = {
-        investors: "navInv",
-        traders: "navTr",
-        pending: "navPend",
-        support: "navSup",
-        address: "navAddr",
-        password: "navPass"
-      };
-
-      if(navMap[t]) document.getElementById(navMap[t]).classList.add("active");
-      render();
-    }
-
-    // ====== INVESTOR LIST ======
-    async function renderInvestors(){
-      content.innerHTML = "<div class='center2'>Fetching Investors...</div>";
-
-      const res = await apiCall("/admin/users?role=investor");
-
-      if(!res.success) return content.innerHTML = "<div class='center2'>Error loading users.</div>";
-
-      content.innerHTML = `
-        <div class="page">
-          <h2>Investor Management</h2>
-          <div class="card">
-            <div class="table">
-              <div class="thead"><div>UID</div><div>Name</div><div>Balance</div><div>Status</div><div>Actions</div></div>
-              ${res.users.map(u => `
-                <div class="trow">
-                  <div><b>UID-${u.uid}</b></div>
-                  <div>${u.name}</div>
-                  <div>$${Number(u.balance || 0).toFixed(2)}</div>
-                  <div><span class="status-pill ${u.isBlocked ? 'bg-red' : 'bg-green'}">${u.isBlocked ? 'BLOCKED' : 'ACTIVE'}</span></div>
-                  <div class="action-btns">
-                    <button class="btn sm" onclick="toggleBlockUser('${u._id}', ${u.isBlocked})">${u.isBlocked ? 'Unblock' : 'Block'}</button>
-                  </div>
-                </div>
-              `).join("") || "No Investors Found"}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    // ====== PENDING REQUESTS ======
-    async function renderPending(){
-      content.innerHTML = "<div class='center2'>Checking Pending Transactions...</div>";
-
-      const res = await apiCall("/admin/pending");
-
-      content.innerHTML = `
-        <div class="page">
-          <h2>Pending Balance Requests</h2>
-          <div class="card">
-            ${!res.list || res.list.length === 0 ? "<div class='muted center2'>No pending requests!</div>" :
-              res.list.map(p => `
-                <div class="rowitem">
-                  <div>
-                    <div class="b">${p.userId} (${p.type})</div>
-                    <div class="muted">Amount: $${p.amount} | Date: ${new Date(p.createdAt).toLocaleDateString()}</div>
-                  </div>
-                  <div class="actions">
-                    <button class="btn sm" onclick="updateTx('${p._id}', 'success')">Approve</button>
-                    <button class="btn danger sm" onclick="updateTx('${p._id}', 'failed')">Reject</button>
-                  </div>
-                </div>
-              `).join("")
-            }
-          </div>
-        </div>
-      `;
-    }
-
-    // ====== SYSTEM WALLETS ======
-    async function renderAddress(){
-      content.innerHTML = "<div class='center2'>Fetching System Addresses...</div>";
-
-      const addrRes = await apiCall("/admin/addresses", "GET");
-
-      const doc = addrRes?.doc || {};
-      const trc20 = doc.trc20 || "";
-      const erc20 = doc.erc20 || "";
-      const bep20 = doc.bep20 || "";
-
-      content.innerHTML = `
-        <div class="page">
-          <h2>System Wallet Management</h2>
-          <p class="muted">ये एड्रेस सभी यूज़र्स को उनके डिपॉजिट पेज पर दिखेंगे।</p>
-
-          <div class="card">
-            <label class="lbl">USDT (TRC20)</label>
-            <input id="trc20" placeholder="Enter TRC20 Address" value="${trc20}"/>
-
-            <label class="lbl">USDT (ERC20)</label>
-            <input id="erc20" placeholder="Enter ERC20 Address" value="${erc20}"/>
-
-            <label class="lbl">USDT (BEP20)</label>
-            <input id="bep20" placeholder="Enter BEP20 Address" value="${bep20}"/>
-
-            <button class="btn full" onclick="saveWallets()">Update All Addresses</button>
-          </div>
-        </div>
-      `;
-    }
-
-    // ====== FUNCTIONS FOR ACTIONS ======
-    async function toggleBlockUser(userId, currentStatus){
-      const res = await apiCall(`/admin/block/${userId}`, "POST", { block: !currentStatus });
-      if(res.success) {
-        showToast("User Status Updated");
-        render();
-      } else {
-        showToast(res.message || "Failed");
-      }
-    }
-
-    async function updateTx(txId, status){
-      const res = await apiCall(`/admin/transaction/${txId}`, "POST", { status });
-      if(res.success) {
-        showToast("Transaction Updated");
-        render();
-      } else {
-        showToast(res.message || "Failed");
-      }
-    }
-
-    async function saveWallets(){
-      const trc20 = document.getElementById("trc20").value.trim();
-      const erc20 = document.getElementById("erc20").value.trim();
-      const bep20 = document.getElementById("bep20").value.trim();
-
-      const res = await apiCall("/admin/addresses", "POST", { trc20, erc20, bep20 });
-
-      if(res.success){
-        showToast("Addresses Saved ✅");
-      } else {
-        showToast(res.message || "Failed to save");
-      }
-    }
-
-    function render(){
-      if(currentTab === "investors") renderInvestors();
-      if(currentTab === "pending") renderPending();
-      if(currentTab === "address") renderAddress();
-      // traders/support/password can be added later without breaking
-    }
-
-    // boot
-    loadAdminName();
-    render();
-  </script>
 </body>
 </html>
