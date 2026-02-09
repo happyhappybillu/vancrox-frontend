@@ -1,21 +1,23 @@
 /* ======================================================
-   VANCROX • INVESTOR DASHBOARD (FRONTEND ONLY)
+   VANCROX • INVESTOR DASHBOARD (FINAL – STABLE)
+   ✔ auth.js based
+   ✔ No TOKEN bug
+   ✔ All features included
    ====================================================== */
 
+// 🔐 protect page
+requireAuth("investor");
+
 /* ================= CONFIG ================= */
-const API = "https://vancrox-backend.onrender.com";
+const API_BASE = "https://vancrox-backend.onrender.com";
 
-if(!TOKEN){
-  alert("Session expired. Please login again.");
-  location.href = "./login.html";
-}
-
-/* ================= HELPERS ================= */
+/* ================= ELEMENTS ================= */
 const screen = document.getElementById("screen");
 const modal = document.getElementById("modal");
 const modalCard = document.getElementById("modalCard");
 const toast = document.getElementById("toast");
 
+/* ================= HELPERS ================= */
 function showToast(msg){
   toast.innerText = msg;
   toast.classList.add("show");
@@ -34,20 +36,7 @@ modal.onclick = e=>{
   if(e.target.id==="modal") closeModal();
 };
 
-async function api(path, method="GET", body){
-  const res = await fetch(API + path,{
-    method,
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization":"Bearer "+TOKEN
-    },
-    body: body ? JSON.stringify(body) : null
-  });
-  const data = await res.json().catch(()=>({}));
-  return { ok: res.ok, data };
-}
-
-/* ================= GLOBAL STATE ================= */
+/* ================= STATE ================= */
 const state = {
   tab: "home",
   user: {},
@@ -60,7 +49,7 @@ const state = {
 
 /* ================= INIT ================= */
 (async function init(){
-  const me = await api("/api/auth/me");
+  const me = await api("/api/auth/me","GET",null,true);
   if(!me.ok) return logout();
 
   if(me.data.user.role !== "investor"){
@@ -70,7 +59,7 @@ const state = {
 
   state.user = me.data.user;
   document.getElementById("userName").innerText = state.user.name;
-  document.getElementById("userId").innerText = "UID"+state.user.uid;
+  document.getElementById("userId").innerText = "UID" + state.user.uid;
 
   await loadAll();
 })();
@@ -86,7 +75,7 @@ async function loadAll(){
 
 /* ================= LOADERS ================= */
 async function loadHistory(){
-  const r = await api("/api/investor/history");
+  const r = await api("/api/investor/history","GET",null,true);
   state.history = r.data?.tx || [];
 
   let bal = 0;
@@ -100,17 +89,17 @@ async function loadHistory(){
 }
 
 async function loadTopTraders(){
-  const r = await api("/api/investor/top-traders");
+  const r = await api("/api/investor/top-traders","GET",null,true);
   state.topTraders = r.data?.ads || [];
 }
 
 async function loadMyTrades(){
-  const r = await api("/api/investor/my-traders");
+  const r = await api("/api/investor/my-traders","GET",null,true);
   state.myTrades = r.data?.list || [];
 }
 
 async function loadAddresses(){
-  const r = await api("/api/wallet/system-address");
+  const r = await api("/api/investor/system-address","GET",null,true);
   state.addresses = r.data?.addresses || {};
 }
 
@@ -118,7 +107,8 @@ async function loadAddresses(){
 function goTab(tab){
   state.tab = tab;
   document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
-  document.getElementById("nav"+tab.charAt(0).toUpperCase()+tab.slice(1)).classList.add("active");
+  document.getElementById("nav"+tab.charAt(0).toUpperCase()+tab.slice(1))
+    ?.classList.add("active");
   render();
 }
 
@@ -137,7 +127,7 @@ function renderHome(){
     <div class="bal-top">
       <div>
         <div class="bal-label">TOTAL BALANCE</div>
-        <div class="bal-amt">$${state.balance}</div>
+        <div class="bal-amt">$${state.balance.toFixed(2)}</div>
       </div>
       <div class="shield">
         <div class="shield-title">100% Refund Guarantee</div>
@@ -179,16 +169,12 @@ function renderChart(){
   screen.innerHTML = `
   <div class="chart-grid">
     <div class="chart-card">
-      <div class="chart-head">
-        <span>XAUUSD</span><span class="live">LIVE</span>
-      </div>
+      <div class="chart-head"><span>XAUUSD</span><span class="live">LIVE</span></div>
       <iframe src="https://s.tradingview.com/widgetembed/?symbol=XAUUSD&interval=15&theme=dark"></iframe>
     </div>
 
     <div class="chart-card">
-      <div class="chart-head">
-        <span>BTCUSDT</span><span class="live">LIVE</span>
-      </div>
+      <div class="chart-head"><span>BTCUSDT</span><span class="live">LIVE</span></div>
       <iframe src="https://s.tradingview.com/widgetembed/?symbol=BTCUSDT&interval=15&theme=dark"></iframe>
     </div>
   </div>`;
@@ -240,22 +226,30 @@ function hireTrader(adId){
 }
 
 async function confirmHire(adId){
-  const r = await api("/api/investor/hire","POST",{ traderAdId: adId });
-  if(!r.ok) return showToast(r.data.message||"Failed");
+  const r = await api("/api/investor/hire","POST",{ traderAdId: adId },true);
+  if(!r.ok) return showToast(r.data?.message || "Failed");
   closeModal();
   showToast("Trade started");
   await loadAll();
 }
 
 function openDeposit(){
-  openModal(`<h3>Deposit</h3><p>Use address shown below</p>`);
+  openModal(`
+    <h3>Deposit</h3>
+    <p>Use address shown below</p>
+    <pre>${JSON.stringify(state.addresses,null,2)}</pre>
+  `);
 }
 
 function openWithdraw(){
-  openModal(`<h3>Withdraw</h3><p>Withdraw request will be pending</p>`);
+  openModal(`
+    <h3>Withdraw</h3>
+    <p>Withdraw request will be pending until admin approval</p>
+  `);
 }
 
-/* ================= OTHERS ================= */
+/* ================= LOGOUT ================= */
 function logout(){
+  localStorage.removeItem("vancrox_auth");
   location.href="./login.html";
 }
