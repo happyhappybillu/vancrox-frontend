@@ -16,24 +16,40 @@
 <body>
 
 <!-- HEADER -->
+<!-- ================= HEADER ================= -->
 <header class="dash-header">
+
+  <!-- LEFT -->
   <div class="left">
     <button class="menu-btn" id="menuBtn">☰</button>
+
     <div class="profile">
-      <img id="profileImg" src="./assets/default-user.png">
+      <img
+        id="profileImg"
+        src="./assets/default-user.png"
+        alt="Profile"
+        class="avatar"
+      />
+
       <div class="profile-meta">
-        <div class="welcome">Trader Panel</div>
-        <div class="name" id="traderName">...</div>
+        <div class="panel-title">Trader Panel</div>
+        <!-- ⚠️ JS yahin update karega -->
+        <div class="name" id="tName">Loading...</div>
       </div>
     </div>
   </div>
+
+  <!-- RIGHT -->
   <div class="right">
+    <!-- ⚠️ JS yahin TID dalega -->
     <div class="uid-box">
       <div class="uid-label">Trader ID</div>
-      <div class="uid" id="tid">TID0000</div>
+      <div class="uid-value" id="tId">TID----</div>
     </div>
   </div>
+
 </header>
+<!-- =============== END HEADER =============== -->
 
 <!-- MENU -->
 <aside class="drawer" id="drawer">

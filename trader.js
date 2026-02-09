@@ -1,284 +1,279 @@
 /* =========================================================
-   TRADER DASHBOARD – FRONTEND JS (FINAL – FIXED)
+   TRADER DASHBOARD – FRONTEND JS (FULL & FINAL)
    Project: VANCROX
    Role: Trader
-   Auth handled ONLY by auth.js
-   ========================================================= */
-
-// 🔐 protect page (auth.js must be loaded before this file)
-requireAuth("trader");
-
-/* =========================================================
-   GLOBAL STATE
+   Auth: auth.js (single source of truth)
 ========================================================= */
+
+/* ================= GLOBAL ================= */
 const screen = document.getElementById("screen");
 const toast = document.getElementById("toast");
 const modal = document.getElementById("modal");
 const modalCard = document.getElementById("modalCard");
 
+/* ================= STATE ================= */
 const state = {
   trader: {},
-  verified: false,
-  historyStatus: "NOT_UPLOADED", // NOT_UPLOADED | PENDING | APPROVED | REJECTED
+  historyStatus: "NOT_SUBMITTED", // NOT_SUBMITTED | PENDING | APPROVED | REJECTED
+  dashboardUnlocked: false,
   securityMoney: 0,
   earning: 0,
   level: 1,
   maxAds: 1,
-  ads: [],
-  inventory: [],
+  inventory: []
 };
 
-/* =========================================================
-   HELPERS
-========================================================= */
-function showToast(msg) {
+/* ================= HELPERS ================= */
+function showToast(msg){
   toast.innerText = msg;
   toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 2600);
+  setTimeout(()=>toast.classList.remove("show"),2600);
 }
 
-function openModal(html) {
+function openModal(html){
   modalCard.innerHTML = html;
   modal.classList.remove("hidden");
 }
-function closeModal() {
+function closeModal(){
   modal.classList.add("hidden");
   modalCard.innerHTML = "";
 }
-modal.onclick = (e) => {
-  if (e.target.id === "modal") closeModal();
+modal.onclick = e=>{
+  if(e.target.id === "modal") closeModal();
 };
 
-async function fileToBase64(file) {
-  return new Promise((res, rej) => {
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
     const r = new FileReader();
-    r.onload = () => res(r.result);
+    r.onload = ()=>res(r.result);
     r.onerror = rej;
     r.readAsDataURL(file);
   });
 }
 
-/* =========================================================
-   INIT
-========================================================= */
-(async function init() {
-  const r = await api("/api/auth/me", "GET", null, true);
-  if (!r.ok || r.data.user.role !== "trader") {
+/* ================= INIT ================= */
+(async function init(){
+
+  /* 🔐 WAIT FOR AUTH (MOST IMPORTANT FIX) */
+  await requireAuth("trader");
+
+  const me = await api("/api/auth/me","GET",null,true);
+  if(!me.ok || me.data.user.role !== "trader"){
     logout();
     return;
   }
 
-  state.trader = r.data.user;
-  document.getElementById("tName").innerText = state.trader.name;
-  document.getElementById("tId").innerText = "TID" + state.trader.tid;
+  state.trader = me.data.user;
 
-  await loadTraderStatus();
+  document.getElementById("tName").innerText = state.trader.name || "Trader";
+  document.getElementById("tId").innerText = "TID" + (state.trader.tid || "----");
+
+  await loadStatus();
   render();
 })();
 
-/* =========================================================
-   LOAD STATUS
-========================================================= */
-async function loadTraderStatus() {
-  const r = await api("/api/trader/status", "GET", null, true);
-  if (!r.ok) return;
+/* ================= LOAD STATUS ================= */
+async function loadStatus(){
+  const r = await api("/api/trader/status","GET",null,true);
+  if(!r.ok) return;
 
-  const d = r.data;
-
-  state.historyStatus = d.historyStatus;
-  state.securityMoney = d.securityMoney;
-  state.earning = d.earning;
-  state.level = d.level;
-  state.maxAds = d.maxAds;
-  state.verified = d.dashboardUnlocked;
-
-  document.getElementById("secText").innerText =
-    "$" + Number(state.securityMoney).toFixed(2);
-  document.getElementById("earnText").innerText =
-    "$" + Number(state.earning).toFixed(2);
-  document.getElementById("levelText").innerText = "Level " + state.level;
+  const d = r.data || {};
+  state.historyStatus = d.historyStatus || "NOT_SUBMITTED";
+  state.dashboardUnlocked = d.dashboardUnlocked || false;
+  state.securityMoney = d.securityMoney || 0;
+  state.earning = d.earning || 0;
+  state.level = d.level || 1;
+  state.maxAds = d.maxAds || 1;
 }
 
-/* =========================================================
-   RENDER ROUTER
-========================================================= */
-function render() {
-  if (!state.verified) {
-    renderLocked();
-  } else {
+/* ================= RENDER ROOT ================= */
+function render(){
+  if(!state.dashboardUnlocked){
+    renderLockedFlow();
+  }else{
     renderDashboard();
   }
 }
 
-/* =========================================================
-   LOCKED FLOW
-========================================================= */
-function renderLocked() {
-  if (state.historyStatus === "NOT_UPLOADED") {
-    renderUploadHistory();
+/* ================= LOCKED FLOW ================= */
+function renderLockedFlow(){
+
+  /* 1️⃣ HISTORY NOT SUBMITTED */
+  if(state.historyStatus === "NOT_SUBMITTED"){
+    screen.innerHTML = `
+      <div class="card center">
+        <h3>Upload 2 Years Trading History</h3>
+        <p class="muted">PDF or Image required</p>
+        <input type="file" id="historyFile" accept="image/*,.pdf"/>
+        <button class="btn full" onclick="submitHistory()">Submit</button>
+      </div>
+    `;
     return;
   }
 
-  if (state.historyStatus === "PENDING") {
+  /* 2️⃣ PENDING */
+  if(state.historyStatus === "PENDING"){
     screen.innerHTML = `
       <div class="card center">
         <h3>Verification Pending</h3>
-        <p class="muted">
-          Your 2-year trading history is under review.
-        </p>
-      </div>`;
+        <p class="muted">Admin is reviewing your trading history</p>
+      </div>
+    `;
     return;
   }
 
-  if (state.historyStatus === "REJECTED") {
+  /* 3️⃣ REJECTED */
+  if(state.historyStatus === "REJECTED"){
     screen.innerHTML = `
       <div class="card center">
         <h3>Verification Rejected</h3>
-        <p class="muted">Please upload again.</p>
-        <button class="btn" onclick="renderUploadHistory()">Re-upload</button>
-      </div>`;
+        <p class="muted">Please upload correct history</p>
+        <input type="file" id="historyFile" accept="image/*,.pdf"/>
+        <button class="btn full" onclick="submitHistory()">Upload Again</button>
+      </div>
+    `;
     return;
   }
 
+  /* 4️⃣ APPROVED BUT SECURITY NOT PAID */
   renderSecurityDeposit();
 }
 
-function renderUploadHistory() {
-  screen.innerHTML = `
-    <div class="card center">
-      <h3>Upload 2 Years Trading History</h3>
-      <input type="file" id="historyFile" accept="image/*,.pdf"/>
-      <button class="btn full" onclick="submitHistory()">Submit</button>
-    </div>`;
-}
-
-async function submitHistory() {
+/* ================= HISTORY UPLOAD ================= */
+async function submitHistory(){
   const file = document.getElementById("historyFile").files[0];
-  if (!file) return showToast("Upload required");
+  if(!file) return showToast("History file required");
 
   const proof = await fileToBase64(file);
-  const r = await api("/api/trader/upload-history", "POST", { proof }, true);
-  if (!r.ok) return showToast(r.data?.message || "Failed");
+  const r = await api("/api/trader/upload-history","POST",{ proof },true);
+  if(!r.ok) return showToast(r.data?.message || "Upload failed");
 
   showToast("History submitted");
-  await loadTraderStatus();
+  await loadStatus();
   render();
 }
 
-/* =========================================================
-   SECURITY DEPOSIT
-========================================================= */
-function renderSecurityDeposit() {
+/* ================= SECURITY DEPOSIT ================= */
+function renderSecurityDeposit(){
   screen.innerHTML = `
     <div class="card center">
-      <h3>Security Money Required</h3>
-      <p class="muted">Minimum $100</p>
-      <button class="btn" onclick="openSecurityDeposit()">Deposit</button>
-    </div>`;
+      <h3>Security Deposit Required</h3>
+      <p class="muted">Minimum 100 USDT</p>
+      <button class="btn full" onclick="openSecurityDeposit()">Deposit Security</button>
+    </div>
+  `;
 }
 
-async function openSecurityDeposit() {
-  const a = await api("/api/investor/system-address", "GET", null, true);
+async function openSecurityDeposit(){
+  const a = await api("/api/wallet/system-address","GET",null,true);
   const addr = a.data?.addresses || {};
 
   openModal(`
     <div class="modal-title">Security Deposit</div>
+
     ${["erc20","trc20","bep20"].map(n=>`
       <div class="addr-block">
-        <b>${n.toUpperCase()}</b>
-        <input readonly value="${addr[n]||""}">
-      </div>`).join("")}
-    <input id="secAmt" type="number" placeholder="Amount">
+        <label>${n.toUpperCase()}</label>
+        <input readonly value="${addr[n] || ""}">
+      </div>
+    `).join("")}
+
+    <input id="secAmt" type="number" placeholder="Amount (min 100)">
     <input id="secProof" type="file" accept="image/*">
+
     <button class="btn full" onclick="submitSecurity()">Submit</button>
+    <button class="btn ghost full" onclick="closeModal()">Cancel</button>
   `);
 }
 
-async function submitSecurity() {
+async function submitSecurity(){
   const amt = Number(document.getElementById("secAmt").value || 0);
   const file = document.getElementById("secProof").files[0];
-  if (amt < 100 || !file) return showToast("Invalid input");
+  if(amt < 100 || !file) return showToast("Invalid details");
 
   const proof = await fileToBase64(file);
-  const r = await api(
-    "/api/trader/security-deposit",
-    "POST",
-    { amount: amt, proof },
-    true
-  );
-
-  if (!r.ok) return showToast(r.data?.message || "Failed");
+  const r = await api("/api/trader/security-deposit","POST",{ amount: amt, proof },true);
+  if(!r.ok) return showToast(r.data?.message || "Submission failed");
 
   closeModal();
   showToast("Security submitted");
-  await loadTraderStatus();
+  await loadStatus();
   render();
 }
 
-/* =========================================================
-   DASHBOARD
-========================================================= */
-function renderDashboard() {
+/* ================= DASHBOARD ================= */
+function renderDashboard(){
   screen.innerHTML = `
     <section class="balance-card">
       <div>Security: $${state.securityMoney}</div>
+      <div>Earning: $${state.earning}</div>
       <div>Level ${state.level} • Max Ads ${state.maxAds}</div>
     </section>
-    <section>
+
+    <section class="section">
       <button class="btn" onclick="openCreateAd()">Create Ad</button>
       <div id="invList">Loading...</div>
-    </section>`;
+    </section>
+  `;
   loadInventory();
 }
 
-/* =========================================================
-   ADS + INVENTORY
-========================================================= */
-function openCreateAd() {
+/* ================= ADS ================= */
+function openCreateAd(){
   openModal(`
+    <div class="modal-title">Create Ad</div>
     <input id="adPct" type="number" placeholder="Profit %">
-    <button class="btn" onclick="createAd()">Create</button>
+    <button class="btn full" onclick="createAd()">Create</button>
   `);
 }
 
-async function createAd() {
+async function createAd(){
   const pct = Number(document.getElementById("adPct").value || 0);
-  if (pct <= 0) return showToast("Invalid %");
+  if(pct <= 0) return showToast("Invalid percent");
 
-  const r = await api(
-    "/api/trader/create-ad",
-    "POST",
-    { profitPercent: pct },
-    true
-  );
+  const r = await api("/api/trader/create-ad","POST",{ profitPercent: pct },true);
+  if(!r.ok) return showToast(r.data?.message || "Failed");
 
-  if (!r.ok) return showToast("Failed");
   closeModal();
   showToast("Ad created");
+  loadInventory();
 }
 
-async function loadInventory() {
+/* ================= INVENTORY ================= */
+async function loadInventory(){
   const el = document.getElementById("invList");
-  const r = await api("/api/trader/inventory", "GET", null, true);
-  if (!r.ok) return (el.innerHTML = "Failed");
+  const r = await api("/api/trader/inventory","GET",null,true);
+  if(!r.ok){
+    el.innerHTML = "Failed to load";
+    return;
+  }
 
   const list = r.data.items || [];
   el.innerHTML = list.length
     ? list.map(t=>`
       <div class="trade-card">
-        ${t.investorName}
-        ${t.status==="WAITING_TRADER_CONFIRMATION"
-          ? `<button onclick="confirmTrade('${t._id}')">Confirm</button>`
-          : ""}
-      </div>`).join("")
-    : "No trades";
+        <b>${t.investorName}</b>
+        <div>Status: ${t.status}</div>
+
+        ${
+          t.status === "WAITING_TRADER_CONFIRMATION"
+          ? `
+            <button onclick="confirmTrade('${t._id}')">Confirm</button>
+            <button onclick="rejectTrade('${t._id}')">Reject</button>
+          `
+          : ""
+        }
+      </div>
+    `).join("")
+    : "No active trades";
 }
 
 async function confirmTrade(id){
-  await api("/api/trader/confirm-trade","POST",{hireId:id},true);
+  await api("/api/trader/confirm-trade","POST",{ hireId: id },true);
   loadInventory();
 }
+
 async function rejectTrade(id){
-  await api("/api/trader/reject-trade","POST",{hireId:id},true);
+  await api("/api/trader/reject-trade","POST",{ hireId: id },true);
   loadInventory();
 }
