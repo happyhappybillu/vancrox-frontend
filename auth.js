@@ -1,12 +1,10 @@
-
 /* ===========================
-   VANCROX Frontend Auth (FINAL)
-   ✔ Single source of truth
-   ✔ Register + Login
-   ✔ Role detect (investor / trader)
-   ✔ Correct dashboard redirect
-   ✔ Dashboard protection
-   =========================== */
+   VANCROX Frontend Auth (FINAL – FIXED)
+   ✔ Investor / Trader
+   ✔ Admin safe
+   ✔ No auto logout bug
+   ✔ No feature removed
+=========================== */
 
 const API_BASE = "https://vancrox-backend.onrender.com";
 
@@ -44,6 +42,8 @@ function redirectDashboard(role) {
     window.location.href = "./investor-dashboard.html";
   } else if (role === "trader") {
     window.location.href = "./trader-dashboard.html";
+  } else if (role === "admin") {
+    window.location.href = "./admin.html";
   } else {
     window.location.href = "./login.html";
   }
@@ -74,10 +74,13 @@ async function api(path, method = "GET", body = null, withAuth = false) {
   return { ok: res.ok, data };
 }
 
-/* ---------- Sync real profile ---------- */
+/* ---------- Sync real profile (INVESTOR / TRADER ONLY) ---------- */
 async function syncMe() {
   const a = getAuth();
   if (!a?.token) return false;
+
+  /* 🔥 ADMIN KE LIYE SKIP */
+  if (a.role === "admin") return true;
 
   const { ok, data } = await api("/api/auth/me", "GET", null, true);
   if (!ok || !data?.user) return false;
@@ -103,6 +106,9 @@ async function requireAuth(role) {
     return;
   }
 
+  /* 🔥 ADMIN PAGE = NO /me CHECK */
+  if (auth.role === "admin") return;
+
   const ok = await syncMe();
   if (!ok) {
     logout();
@@ -117,7 +123,7 @@ async function requireAuth(role) {
 
 /* ===========================
    REGISTER
-   =========================== */
+=========================== */
 async function handleRegister(e) {
   e.preventDefault();
 
@@ -159,8 +165,8 @@ async function handleRegister(e) {
 }
 
 /* ===========================
-   LOGIN
-   =========================== */
+   LOGIN (INVESTOR / TRADER)
+=========================== */
 async function handleLogin(e) {
   e.preventDefault();
 
@@ -193,7 +199,7 @@ async function handleLogin(e) {
 
 /* ===========================
    AUTO BIND
-   =========================== */
+=========================== */
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = $("loginForm");
   if (loginForm) loginForm.addEventListener("submit", handleLogin);
@@ -209,5 +215,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   if (location.pathname.includes("trader-dashboard.html")) {
     requireAuth("trader");
+  }
+  if (location.pathname.includes("admin.html")) {
+    requireAuth(); // admin
   }
 });
