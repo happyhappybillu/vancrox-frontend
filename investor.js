@@ -4,7 +4,8 @@
    ✔ No TOKEN bug
    ✔ All features included
    ====================================================== */
-
+const auth = JSON.parse(localStorage.getItem("vancrox_auth") || "{}");
+const TOKEN = auth.token;
 // 🔐 protect page
 requireAuth("investor");
 

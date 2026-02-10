@@ -4,7 +4,8 @@
    Role: Trader
    Auth: auth.js (single source of truth)
 ========================================================= */
-
+const auth = JSON.parse(localStorage.getItem("vancrox_auth") || "{}");
+const TOKEN = auth.token;
 /* ================= GLOBAL ================= */
 const screen = document.getElementById("screen");
 const toast = document.getElementById("toast");
