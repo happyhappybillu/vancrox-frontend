@@ -1,12 +1,11 @@
 /* ======================================================
-   VANCROX • INVESTOR DASHBOARD (FINAL – STABLE)
-   ✔ auth.js based
-   ✔ No TOKEN bug
-   ✔ All features included
-   ====================================================== */
-const auth = JSON.parse(localStorage.getItem("vancrox_auth") || "{}");
-const TOKEN = auth.token;
-// 🔐 protect page
+   VANCROX • INVESTOR DASHBOARD (FINAL – FIXED STABLE)
+   ✔ No loading freeze
+   ✔ No TOKEN race bug
+   ✔ Auth safe
+====================================================== */
+
+/* 🔐 Protect page FIRST */
 requireAuth("investor");
 
 /* ================= CONFIG ================= */
@@ -48,29 +47,42 @@ const state = {
   addresses: {}
 };
 
-/* ================= INIT ================= */
-(async function init(){
+/* ================= SAFE INIT ================= */
+document.addEventListener("DOMContentLoaded", async () => {
+  await init();
+});
+
+async function init(){
+
   const me = await api("/api/auth/me","GET",null,true);
-  if(!me.ok) return logout();
+
+  if(!me.ok){
+    showToast("Session expired");
+    return logout();
+  }
 
   if(me.data.user.role !== "investor"){
-    alert("Unauthorized");
+    showToast("Unauthorized");
     return logout();
   }
 
   state.user = me.data.user;
+
   document.getElementById("userName").innerText = state.user.name;
   document.getElementById("userId").innerText = "UID" + state.user.uid;
 
   await loadAll();
-})();
+}
 
 /* ================= LOAD ALL ================= */
 async function loadAll(){
-  await loadHistory();
-  await loadTopTraders();
-  await loadMyTrades();
-  await loadAddresses();
+  await Promise.all([
+    loadHistory(),
+    loadTopTraders(),
+    loadMyTrades(),
+    loadAddresses()
+  ]);
+
   render();
 }
 
@@ -86,6 +98,7 @@ async function loadHistory(){
     if(t.type==="WITHDRAW") bal -= t.amount;
     if(t.type==="PROFIT_CREDIT") bal += t.amount;
   });
+
   state.balance = bal;
 }
 
@@ -234,10 +247,10 @@ async function confirmHire(adId){
   await loadAll();
 }
 
+/* ================= MODALS ================= */
 function openDeposit(){
   openModal(`
     <h3>Deposit</h3>
-    <p>Use address shown below</p>
     <pre>${JSON.stringify(state.addresses,null,2)}</pre>
   `);
 }

@@ -1,12 +1,17 @@
 /* =========================================================
-   TRADER DASHBOARD – FRONTEND JS (FULL & FINAL)
+   TRADER DASHBOARD – FRONTEND JS (FINAL – STABLE FIXED)
    Project: VANCROX
    Role: Trader
-   Auth: auth.js (single source of truth)
+   Auth: auth.js
 ========================================================= */
-const auth = JSON.parse(localStorage.getItem("vancrox_auth") || "{}");
-const TOKEN = auth.token;
-/* ================= GLOBAL ================= */
+
+/* 🔐 Protect page FIRST */
+requireAuth("trader");
+
+/* ================= CONFIG ================= */
+const API_BASE = "https://vancrox-backend.onrender.com";
+
+/* ================= ELEMENTS ================= */
 const screen = document.getElementById("screen");
 const toast = document.getElementById("toast");
 const modal = document.getElementById("modal");
@@ -15,7 +20,7 @@ const modalCard = document.getElementById("modalCard");
 /* ================= STATE ================= */
 const state = {
   trader: {},
-  historyStatus: "NOT_SUBMITTED", // NOT_SUBMITTED | PENDING | APPROVED | REJECTED
+  historyStatus: "NOT_SUBMITTED",
   dashboardUnlocked: false,
   securityMoney: 0,
   earning: 0,
@@ -52,33 +57,48 @@ function fileToBase64(file){
   });
 }
 
-/* ================= INIT ================= */
-(async function init(){
+/* ================= SAFE INIT ================= */
+document.addEventListener("DOMContentLoaded", async () => {
+  await init();
+});
 
-  /* 🔐 WAIT FOR AUTH (MOST IMPORTANT FIX) */
-  await requireAuth("trader");
+async function init(){
 
   const me = await api("/api/auth/me","GET",null,true);
-  if(!me.ok || me.data.user.role !== "trader"){
-    logout();
-    return;
+
+  if(!me.ok){
+    showToast("Session expired");
+    return logout();
+  }
+
+  if(me.data.user.role !== "trader"){
+    showToast("Unauthorized");
+    return logout();
   }
 
   state.trader = me.data.user;
 
-  document.getElementById("tName").innerText = state.trader.name || "Trader";
-  document.getElementById("tId").innerText = "TID" + (state.trader.tid || "----");
+  document.getElementById("tName").innerText =
+    state.trader.name || "Trader";
+
+  document.getElementById("tId").innerText =
+    "TID" + (state.trader.tid || "----");
 
   await loadStatus();
   render();
-})();
+}
 
 /* ================= LOAD STATUS ================= */
 async function loadStatus(){
   const r = await api("/api/trader/status","GET",null,true);
-  if(!r.ok) return;
+
+  if(!r.ok){
+    showToast("Failed to load status");
+    return;
+  }
 
   const d = r.data || {};
+
   state.historyStatus = d.historyStatus || "NOT_SUBMITTED";
   state.dashboardUnlocked = d.dashboardUnlocked || false;
   state.securityMoney = d.securityMoney || 0;
@@ -91,7 +111,7 @@ async function loadStatus(){
 function render(){
   if(!state.dashboardUnlocked){
     renderLockedFlow();
-  }else{
+  } else {
     renderDashboard();
   }
 }
@@ -99,7 +119,6 @@ function render(){
 /* ================= LOCKED FLOW ================= */
 function renderLockedFlow(){
 
-  /* 1️⃣ HISTORY NOT SUBMITTED */
   if(state.historyStatus === "NOT_SUBMITTED"){
     screen.innerHTML = `
       <div class="card center">
@@ -107,36 +126,29 @@ function renderLockedFlow(){
         <p class="muted">PDF or Image required</p>
         <input type="file" id="historyFile" accept="image/*,.pdf"/>
         <button class="btn full" onclick="submitHistory()">Submit</button>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
-  /* 2️⃣ PENDING */
   if(state.historyStatus === "PENDING"){
     screen.innerHTML = `
       <div class="card center">
         <h3>Verification Pending</h3>
-        <p class="muted">Admin is reviewing your trading history</p>
-      </div>
-    `;
+        <p class="muted">Admin reviewing your history</p>
+      </div>`;
     return;
   }
 
-  /* 3️⃣ REJECTED */
   if(state.historyStatus === "REJECTED"){
     screen.innerHTML = `
       <div class="card center">
         <h3>Verification Rejected</h3>
-        <p class="muted">Please upload correct history</p>
         <input type="file" id="historyFile" accept="image/*,.pdf"/>
         <button class="btn full" onclick="submitHistory()">Upload Again</button>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
-  /* 4️⃣ APPROVED BUT SECURITY NOT PAID */
   renderSecurityDeposit();
 }
 
@@ -146,7 +158,14 @@ async function submitHistory(){
   if(!file) return showToast("History file required");
 
   const proof = await fileToBase64(file);
-  const r = await api("/api/trader/upload-history","POST",{ proof },true);
+
+  const r = await api(
+    "/api/trader/upload-history",
+    "POST",
+    { proof },
+    true
+  );
+
   if(!r.ok) return showToast(r.data?.message || "Upload failed");
 
   showToast("History submitted");
@@ -154,18 +173,18 @@ async function submitHistory(){
   render();
 }
 
-/* ================= SECURITY DEPOSIT ================= */
+/* ================= SECURITY ================= */
 function renderSecurityDeposit(){
   screen.innerHTML = `
     <div class="card center">
       <h3>Security Deposit Required</h3>
       <p class="muted">Minimum 100 USDT</p>
       <button class="btn full" onclick="openSecurityDeposit()">Deposit Security</button>
-    </div>
-  `;
+    </div>`;
 }
 
 async function openSecurityDeposit(){
+
   const a = await api("/api/wallet/system-address","GET",null,true);
   const addr = a.data?.addresses || {};
 
@@ -176,8 +195,7 @@ async function openSecurityDeposit(){
       <div class="addr-block">
         <label>${n.toUpperCase()}</label>
         <input readonly value="${addr[n] || ""}">
-      </div>
-    `).join("")}
+      </div>`).join("")}
 
     <input id="secAmt" type="number" placeholder="Amount (min 100)">
     <input id="secProof" type="file" accept="image/*">
@@ -188,16 +206,27 @@ async function openSecurityDeposit(){
 }
 
 async function submitSecurity(){
+
   const amt = Number(document.getElementById("secAmt").value || 0);
   const file = document.getElementById("secProof").files[0];
-  if(amt < 100 || !file) return showToast("Invalid details");
+
+  if(amt < 100 || !file)
+    return showToast("Invalid details");
 
   const proof = await fileToBase64(file);
-  const r = await api("/api/trader/security-deposit","POST",{ amount: amt, proof },true);
+
+  const r = await api(
+    "/api/trader/security-deposit",
+    "POST",
+    { amount: amt, proof },
+    true
+  );
+
   if(!r.ok) return showToast(r.data?.message || "Submission failed");
 
   closeModal();
   showToast("Security submitted");
+
   await loadStatus();
   render();
 }
@@ -214,8 +243,8 @@ function renderDashboard(){
     <section class="section">
       <button class="btn" onclick="openCreateAd()">Create Ad</button>
       <div id="invList">Loading...</div>
-    </section>
-  `;
+    </section>`;
+
   loadInventory();
 }
 
@@ -229,27 +258,42 @@ function openCreateAd(){
 }
 
 async function createAd(){
-  const pct = Number(document.getElementById("adPct").value || 0);
-  if(pct <= 0) return showToast("Invalid percent");
 
-  const r = await api("/api/trader/create-ad","POST",{ profitPercent: pct },true);
-  if(!r.ok) return showToast(r.data?.message || "Failed");
+  const pct = Number(document.getElementById("adPct").value || 0);
+
+  if(pct <= 0)
+    return showToast("Invalid percent");
+
+  const r = await api(
+    "/api/trader/create-ad",
+    "POST",
+    { profitPercent: pct },
+    true
+  );
+
+  if(!r.ok)
+    return showToast(r.data?.message || "Failed");
 
   closeModal();
   showToast("Ad created");
+
   loadInventory();
 }
 
 /* ================= INVENTORY ================= */
 async function loadInventory(){
+
   const el = document.getElementById("invList");
+
   const r = await api("/api/trader/inventory","GET",null,true);
+
   if(!r.ok){
-    el.innerHTML = "Failed to load";
+    el.innerHTML = "Failed to load trades";
     return;
   }
 
   const list = r.data.items || [];
+
   el.innerHTML = list.length
     ? list.map(t=>`
       <div class="trade-card">
@@ -269,6 +313,7 @@ async function loadInventory(){
     : "No active trades";
 }
 
+/* ================= ACTIONS ================= */
 async function confirmTrade(id){
   await api("/api/trader/confirm-trade","POST",{ hireId: id },true);
   loadInventory();
@@ -277,4 +322,10 @@ async function confirmTrade(id){
 async function rejectTrade(id){
   await api("/api/trader/reject-trade","POST",{ hireId: id },true);
   loadInventory();
+}
+
+/* ================= LOGOUT ================= */
+function logout(){
+  localStorage.removeItem("vancrox_auth");
+  location.href="./login.html";
 }
