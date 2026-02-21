@@ -52,27 +52,29 @@ document.addEventListener("DOMContentLoaded", async () => {
   await init();
 });
 
-async function init(){
+(async function init(){
+
+  await requireAuth("investor"); // 🔥 WAIT for auth sync
 
   const me = await api("/api/auth/me","GET",null,true);
 
-  if(!me.ok){
+  if(!me.ok || !me.data?.user){
     showToast("Session expired");
     return logout();
   }
 
   if(me.data.user.role !== "investor"){
-    showToast("Unauthorized");
     return logout();
   }
 
   state.user = me.data.user;
 
-  document.getElementById("userName").innerText = state.user.name;
-  document.getElementById("userId").innerText = "UID" + state.user.uid;
+  document.getElementById("userName").innerText = state.user.name || "Investor";
+  document.getElementById("userId").innerText = "UID" + (state.user.uid || "----");
 
   await loadAll();
-}
+})();
+
 
 /* ================= LOAD ALL ================= */
 async function loadAll(){

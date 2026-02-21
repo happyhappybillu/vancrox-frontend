@@ -62,32 +62,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   await init();
 });
 
-async function init(){
+
+(async function init(){
+
+  await requireAuth("trader"); // 🔥 VERY IMPORTANT
 
   const me = await api("/api/auth/me","GET",null,true);
 
-  if(!me.ok){
+  if(!me.ok || !me.data?.user){
     showToast("Session expired");
     return logout();
   }
 
   if(me.data.user.role !== "trader"){
-    showToast("Unauthorized");
     return logout();
   }
 
   state.trader = me.data.user;
 
-  document.getElementById("tName").innerText =
-    state.trader.name || "Trader";
-
-  document.getElementById("tId").innerText =
-    "TID" + (state.trader.tid || "----");
+  document.getElementById("tName").innerText = state.trader.name || "Trader";
+  document.getElementById("tId").innerText = "TID" + (state.trader.tid || "----");
 
   await loadStatus();
   render();
-}
-
+})();
 /* ================= LOAD STATUS ================= */
 async function loadStatus(){
   const r = await api("/api/trader/status","GET",null,true);
