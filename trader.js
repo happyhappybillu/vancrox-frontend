@@ -6,7 +6,7 @@
 requireAuth("trader");
 
 /* ================= CONFIG ================= */
-const API_BASE = "https://vancrox-backend.onrender.com";
+var API_BASE = window.API_BASE || "https://vancrox-backend.onrender.com";
 
 /* ================= ELEMENTS ================= */
 const screen = document.getElementById("screen");

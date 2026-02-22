@@ -85,13 +85,12 @@
 <div class="toast" id="toast"></div>
 
 <!-- SCRIPTS (ORDER VERY IMPORTANT) -->
-  <scrpit> window.API_BASE="https://vancrox-backend.onrender.com";</scrpit>
 <script src="./auth.js"></script>
 <script>requireAuth("investor");</script>
 <script src="./investor.js"></script>
-
 <!-- PARTICLES ONLY (visual, safe) -->
 <script>
+  
 const particles = document.getElementById("particles");
 for(let i=0;i<80;i++){
   const p=document.createElement("span");
