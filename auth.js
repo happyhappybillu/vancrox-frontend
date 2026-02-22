@@ -6,7 +6,7 @@
    ✔ No feature removed
 =========================== */
 
-const API_BASE = "https://vancrox-backend.onrender.com";
+var API_BASE = "https://vancrox-backend.onrender.com";
 
 /* ---------- Helpers ---------- */
 function $(id) {
