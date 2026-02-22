@@ -8,48 +8,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./trader.css"><!-- investor css reuse -->
 </head>
-<script src="./auth.js"></script>
-<script>requireAuth("trader");
-  
-</script>
-<script src="./trader.js"></script>
+
 <body>
 
 <!-- HEADER -->
-<!-- ================= HEADER ================= -->
 <header class="dash-header">
-
-  <!-- LEFT -->
   <div class="left">
     <button class="menu-btn" id="menuBtn">☰</button>
-
     <div class="profile">
-      <img
-        id="profileImg"
-        src="./assets/default-user.png"
-        alt="Profile"
-        class="avatar"
-      />
-
+      <img id="profileImg" src="./assets/default-user.png">
       <div class="profile-meta">
-        <div class="panel-title">Trader Panel</div>
-        <!-- ⚠️ JS yahin update karega -->
-        <div class="name" id="tName">Loading...</div>
+        <div class="welcome">Trader Panel</div>
+        <div class="name" id="traderName">...</div>
       </div>
     </div>
   </div>
-
-  <!-- RIGHT -->
   <div class="right">
-    <!-- ⚠️ JS yahin TID dalega -->
     <div class="uid-box">
       <div class="uid-label">Trader ID</div>
-      <div class="uid-value" id="tId">TID----</div>
+      <div class="uid" id="tid">TID0000</div>
     </div>
   </div>
-
 </header>
-<!-- =============== END HEADER =============== -->
 
 <!-- MENU -->
 <aside class="drawer" id="drawer">
@@ -76,198 +56,9 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script>
-/* ================= AUTH FIX (FINAL) ================= */
-const AUTH = JSON.parse(localStorage.getItem("vancrox_auth"));
 
-if(!AUTH || !AUTH.token || AUTH.role !== "trader"){
-  location.href = "./login.html";
-}
-
-/* ================= CONFIG ================= */
-const API = "https://vancrox-backend.onrender.com";
-
-/* ================= HELPERS ================= */
-const screen = document.getElementById("screen");
-const modal = document.getElementById("modal");
-const modalCard = document.getElementById("modalCard");
-const toast = document.getElementById("toast");
-
-function showToast(t){
-  toast.innerText=t;
-  toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),2500);
-}
-function openModal(h){ modalCard.innerHTML=h; modal.classList.remove("hidden"); }
-function closeModal(){ modal.classList.add("hidden"); modalCard.innerHTML=""; }
-modal.onclick=e=>{ if(e.target.id==="modal") closeModal(); };
-
-async function api(path,method="GET",body){
-  const r = await fetch(API+path,{
-    method,
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization":"Bearer "+AUTH.token
-    },
-    body: body?JSON.stringify(body):null
-  });
-  const d = await r.json().catch(()=>({}));
-  return {ok:r.ok,data:d};
-}
-
-/* ================= STATE ================= */
-const state = {
-  tab:"dashboard",
-  user:{},
-  security:0,
-  level:1,
-  ads:[],
-  inventory:[],
-  earnings:0,
-  locked:true
-};
-
-/* ================= INIT ================= */
-(async()=>{
-  const me = await api("/api/auth/me");
-  if(!me.ok) return logout();
-
-  if(me.data.user.role!=="trader"){
-    alert("Unauthorized");
-    return logout();
-  }
-
-  state.user = me.data.user;
-  document.getElementById("traderName").innerText = state.user.name;
-  document.getElementById("tid").innerText = "TID"+state.user.tid;
-
-  await loadAll();
-})();
-
-/* ================= LOAD ================= */
-async function loadAll(){
-  const sec = await api("/api/trader/security-balance");
-  state.security = sec.data?.balance||0;
-  state.locked = state.security < 100;
-
-  const inv = await api("/api/trader/inventory");
-  state.inventory = inv.data?.items||[];
-
-  const ads = await api("/api/trader/my-ads");
-  state.ads = ads.data?.ads||[];
-
-  const earn = await api("/api/trader/earnings");
-  state.earnings = earn.data?.total||0;
-
-  render();
-}
-
-/* ================= NAV ================= */
-function goTab(t){
-  state.tab=t;
-  render();
-}
-
-/* ================= RENDER ================= */
-function render(){
-  if(state.locked){
-    screen.innerHTML = `
-      <div class="empty">
-        <h3>Account Locked</h3>
-        <p>Upload trading history & deposit minimum 100 USDT security</p>
-        <button class="btn" onclick="openHistoryUpload()">Upload Trading History</button>
-        <button class="btn ghost" onclick="openSecurityDeposit()">Deposit Security</button>
-      </div>
-    `;
-    return;
-  }
-
-  if(state.tab==="dashboard") renderDashboard();
-  if(state.tab==="inventory") renderInventory();
-  if(state.tab==="ads") renderAds();
-  if(state.tab==="history") renderEarnings();
-}
-
-/* ================= DASHBOARD ================= */
-function renderDashboard(){
-  screen.innerHTML = `
-    <section class="balance-card">
-      <div class="bal-label">SECURITY MONEY</div>
-      <div class="bal-amt">$${state.security}</div>
-      <div class="bal-note">Your trading capacity is based on security deposit</div>
-    </section>
-
-    <section class="section">
-      <div class="sec-title">Total Earnings</div>
-      <div class="balance-card">
-        <div class="bal-amt green">$${state.earnings}</div>
-      </div>
-    </section>
-  `;
-}
-
-/* ================= INVENTORY ================= */
-function renderInventory(){
-  screen.innerHTML = state.inventory.length===0
-  ? `<div class="empty">No investors yet</div>`
-  : state.inventory.map(i=>`
-    <div class="trade-card">
-      <div class="trade-top">
-        <div class="trade-name">${i.investorId.name}</div>
-        <div class="trade-badge">${i.status}</div>
-      </div>
-
-      ${
-        i.status==="WAITING_TRADER_CONFIRMATION"
-        ? `
-          <button class="btn-small" onclick="confirmTrade('${i._id}')">Confirm</button>
-          <button class="btn-small ghost" onclick="rejectTrade('${i._id}')">Reject</button>
-        ` : ""
-      }
-
-      ${
-        i.status==="ACTIVE"
-        ? `
-          <button class="btn-small" onclick="selectProfit('${i._id}')">Profit</button>
-          <button class="btn-small ghost" onclick="selectLoss('${i._id}')">Loss</button>
-        ` : ""
-      }
-    </div>
-  `).join("");
-}
-
-/* ================= ADS ================= */
-function renderAds(){
-  screen.innerHTML = `
-    <section class="section">
-      <div class="sec-title">My Ads</div>
-      <button class="btn" onclick="openCreateAd()">Create Ad</button>
-      ${
-        state.ads.map(a=>`
-          <div class="trader-card">
-            <div>${a.title}</div>
-            <div>${a.profitPercent}%</div>
-          </div>
-        `).join("") || "<div class='empty'>No ads</div>"
-      }
-    </section>
-  `;
-}
-
-/* ================= EARNINGS ================= */
-function renderEarnings(){
-  screen.innerHTML = `
-    <div class="empty">
-      Total Earned: $${state.earnings}
-    </div>
-  `;
-}
-
-/* ================= ACTIONS ================= */
-function logout(){
-  localStorage.removeItem("vancrox_auth");
-  location.href="./login.html";
-}
-</script>
+<!-- SCRIPTS -->
+<script src="./auth.js"></script>
+<script src="./trader.js"></script>
 </body>
 </html>

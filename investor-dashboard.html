@@ -13,9 +13,7 @@
   <!-- CSS -->
   <link rel="stylesheet" href="./investor.css" />
 </head>
-<script src="./auth.js"></script>
 
-<script src="./investor.js"></script>
 <body>
 
 <!-- ================= PREMIUM BACKGROUND ================= -->
@@ -83,11 +81,15 @@
 </div>
 
 <!-- ================= TOAST ================= -->
+<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<script>
+<!-- SCRIPTS (ORDER VERY IMPORTANT) -->
+<script src="./auth.js"></script>
+<script src="./investor.js"></script>
 
-/* ================= PARTICLES ================= */
+<!-- PARTICLES ONLY (visual, safe) -->
+<script>
 const particles = document.getElementById("particles");
 for(let i=0;i<80;i++){
   const p=document.createElement("span");
@@ -98,131 +100,7 @@ for(let i=0;i<80;i++){
   p.style.animationDuration=(8+Math.random()*12)+"s";
   particles.appendChild(p);
 }
-
-/* ================= AUTH FIX (IMPORTANT) ================= */
-const AUTH = JSON.parse(localStorage.getItem("vancrox_auth"));
-
-if(!AUTH || !AUTH.token || AUTH.role !== "investor"){
-  location.href = "./login.html";
-}
-
-/* ================= CONFIG ================= */
-const API_BASE = "https://vancrox-backend.onrender.com";
-
-/* ================= HELPERS ================= */
-const screen = document.getElementById("screen");
-const modal = document.getElementById("modal");
-const modalCard = document.getElementById("modalCard");
-const toast = document.getElementById("toast");
-
-function showToast(t){
-  toast.innerText=t;
-  toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),2800);
-}
-function openModal(h){ modalCard.innerHTML=h; modal.classList.remove("hidden"); }
-function closeModal(){ modal.classList.add("hidden"); modalCard.innerHTML=""; }
-modal.onclick=e=>{ if(e.target.id==="modal") closeModal(); };
-
-async function api(path,method="GET",body){
-  const r = await fetch(API_BASE+path,{
-    method,
-    headers:{
-      "Content-Type":"application/json",
-      "Authorization":"Bearer "+AUTH.token
-    },
-    body: body?JSON.stringify(body):null
-  });
-  const d = await r.json().catch(()=>({}));
-  return {ok:r.ok,data:d};
-}
-
-/* ================= STATE ================= */
-const state={
-  tab:"home",
-  balance:0,
-  user:{name:"Investor",uid:0,profilePhoto:""},
-  topTraders:[],
-  myTrades:[],
-  history:[]
-};
-
-/* ================= MENU ================= */
-const drawer=document.getElementById("drawer");
-menuBtn.onclick=()=>drawer.classList.add("open");
-closeDrawer.onclick=()=>drawer.classList.remove("open");
-
-const profilePop=document.getElementById("profilePop");
-profileBtn.onclick=()=>profilePop.classList.toggle("open");
-document.addEventListener("click",e=>{
-  if(!e.target.closest("#profileBtn")&&!e.target.closest("#profilePop")){
-    profilePop.classList.remove("open");
-  }
-});
-
-function logout(){
-  localStorage.removeItem("vancrox_auth");
-  location.href="./login.html";
-}
-
-/* ================= NAV ================= */
-function goTab(t){
-  state.tab=t;
-  render();
-}
-function setActive(){
-  ["home","chart","traders","history"].forEach(x=>{
-    document.getElementById("nav"+x.charAt(0).toUpperCase()+x.slice(1)).classList.remove("active");
-  });
-  document.getElementById("nav"+state.tab.charAt(0).toUpperCase()+state.tab.slice(1)).classList.add("active");
-}
-
-/* ================= LOAD ================= */
-async function loadAll(){
-  const me=await api("/api/auth/me");
-  if(!me.ok){logout();return;}
-
-  state.user=me.data.user;
-  userName.innerText=state.user.name;
-  userId.innerText="UID"+state.user.uid;
-  if(state.user.profilePhoto) profileImg.src=state.user.profilePhoto;
-
-  const hist=await api("/api/investor/history");
-  state.history=hist.data?.tx||[];
-
-  let bal=0;
-  state.history.forEach(t=>{
-    if(t.status==="SUCCESS"){
-      if(t.type==="DEPOSIT") bal+=t.amount;
-      if(t.type==="WITHDRAW") bal-=t.amount;
-      if(t.type==="PROFIT") bal+=t.amount;
-    }
-  });
-  state.balance=bal;
-
-  const ads=await api("/api/investor/top-traders");
-  state.topTraders=ads.data?.ads||[];
-
-  const my=await api("/api/investor/my-traders");
-  state.myTrades=my.data?.list||[];
-
-  render();
-}
-
-/* ================= RENDER ================= */
-function render(){
-  setActive();
-  if(state.tab==="home") renderHome();
-  if(state.tab==="chart") renderChart();
-  if(state.tab==="traders") renderMyTraders();
-  if(state.tab==="history") renderHistory();
-}
-
-/* ================= बाकी का code (HOME / CHART / HISTORY / TILT / etc)
-   👉 EXACT SAME AS YOUR FILE – NOTHING CHANGED
-================================================ */
-
-loadAll();
 </script>
+
 </body>
 </html>
