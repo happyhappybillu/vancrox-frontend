@@ -1,18 +1,25 @@
 /* =========================
-   VANCROX • INVESTOR DASHBOARD
+   VANCROX • INVESTOR DASHBOARD (FINAL)
 ========================= */
 
-/* 🔐 Protect page FIRST */
+/* 🔐 Protect page */
 requireAuth("investor");
 
 /* ================= CONFIG ================= */
- var API_BASE = window.API_BASE || "https://vancrox-backend.onrender.com";
+var API_BASE = window.API_BASE || "https://vancrox-backend.onrender.com";
 
 /* ================= ELEMENTS ================= */
 const screen = document.getElementById("screen");
 const modal = document.getElementById("modal");
 const modalCard = document.getElementById("modalCard");
 const toast = document.getElementById("toast");
+
+const drawer = document.getElementById("drawer");
+const menuBtn = document.getElementById("menuBtn");
+const closeDrawer = document.getElementById("closeDrawer");
+
+const profileBtn = document.getElementById("profileBtn");
+const profilePop = document.getElementById("profilePop");
 
 /* ================= HELPERS ================= */
 function showToast(msg){
@@ -23,22 +30,18 @@ function showToast(msg){
 }
 
 function openModal(html){
-  if (!modal || !modalCard) return;
   modalCard.innerHTML = html;
   modal.classList.remove("hidden");
 }
 
 function closeModal(){
-  if (!modal || !modalCard) return;
   modal.classList.add("hidden");
   modalCard.innerHTML = "";
 }
 
-if (modal){
-  modal.onclick = e => {
-    if (e.target.id === "modal") closeModal();
-  };
-}
+modal?.addEventListener("click", e => {
+  if (e.target.id === "modal") closeModal();
+});
 
 /* ================= STATE ================= */
 const state = {
@@ -53,16 +56,31 @@ const state = {
 
 /* ================= INIT ================= */
 document.addEventListener("DOMContentLoaded", async () => {
-  console.log("✅ DOM READY");
+  initUI();
   await init();
 });
 
-async function init(){
-  try {
-    console.log("🚀 INIT START");
+function initUI(){
 
+  /* Drawer */
+  menuBtn?.addEventListener("click", () => drawer.classList.add("open"));
+  closeDrawer?.addEventListener("click", () => drawer.classList.remove("open"));
+
+  /* Profile pop */
+  profileBtn?.addEventListener("click", () => {
+    profilePop.classList.toggle("open");
+  });
+
+  document.addEventListener("click", e => {
+    if (!profileBtn?.contains(e.target)) {
+      profilePop?.classList.remove("open");
+    }
+  });
+}
+
+async function init(){
+  try{
     const me = await api("/api/auth/me", "GET", null, true);
-    console.log("👤 ME RESPONSE:", me);
 
     if (!me.ok || !me.data?.user){
       showToast("Session expired");
@@ -76,50 +94,39 @@ async function init(){
 
     state.user = me.data.user;
 
-    /* ✅ SAFE DOM SET */
-    const nameEl = document.getElementById("userName");
-    const idEl = document.getElementById("userId");
+    document.getElementById("userName").innerText =
+      state.user.name || "Investor";
 
-    if (nameEl) nameEl.innerText = state.user.name || "Investor";
-    if (idEl) idEl.innerText = "UID" + (state.user.uid || "----");
+    document.getElementById("userId").innerText =
+      "UID" + (state.user.uid || "----");
 
     await loadAll();
   }
-  catch (err){
-    console.error("❌ INIT ERROR:", err);
+  catch(err){
+    console.error(err);
     showToast("Initialization failed");
   }
 }
 
 /* ================= LOAD ALL ================= */
 async function loadAll(){
-  try {
-    console.log("📡 Loading dashboard data...");
+  await Promise.all([
+    loadHistory(),
+    loadTopTraders(),
+    loadMyTrades(),
+    loadAddresses()
+  ]);
 
-    await Promise.all([
-      loadHistory(),
-      loadTopTraders(),
-      loadMyTrades(),
-      loadAddresses()
-    ]);
-
-    console.log("✅ All data loaded");
-    render();
-  }
-  catch (err){
-    console.error("❌ LOAD ALL ERROR:", err);
-    showToast("Loading failed");
-  }
+  render();
 }
 
 /* ================= LOADERS ================= */
 async function loadHistory(){
-  try {
+  try{
     const r = await api("/api/investor/history", "GET", null, true);
     state.history = r.data?.tx || [];
 
     let bal = 0;
-
     state.history.forEach(t => {
       if (t.status !== "SUCCESS") return;
       if (t.type === "DEPOSIT") bal += t.amount;
@@ -128,43 +135,35 @@ async function loadHistory(){
     });
 
     state.balance = bal;
-  }
-  catch (err){
-    console.error("❌ History load error:", err);
+  } catch {
     state.history = [];
     state.balance = 0;
   }
 }
 
 async function loadTopTraders(){
-  try {
+  try{
     const r = await api("/api/investor/top-traders", "GET", null, true);
     state.topTraders = r.data?.ads || [];
-  }
-  catch (err){
-    console.error("❌ Top traders error:", err);
+  } catch {
     state.topTraders = [];
   }
 }
 
 async function loadMyTrades(){
-  try {
+  try{
     const r = await api("/api/investor/my-traders", "GET", null, true);
     state.myTrades = r.data?.list || [];
-  }
-  catch (err){
-    console.error("❌ My trades error:", err);
+  } catch {
     state.myTrades = [];
   }
 }
 
 async function loadAddresses(){
-  try {
+  try{
     const r = await api("/api/investor/system-address", "GET", null, true);
     state.addresses = r.data?.addresses || {};
-  }
-  catch (err){
-    console.error("❌ Address load error:", err);
+  } catch {
     state.addresses = {};
   }
 }
@@ -185,8 +184,6 @@ function goTab(tab){
 
 /* ================= RENDER ================= */
 function render(){
-  if (!screen) return;
-
   if (state.tab === "home") renderHome();
   if (state.tab === "chart") renderChart();
   if (state.tab === "traders") renderMyTrades();
@@ -223,7 +220,7 @@ function renderHome(){
           <div class="trader-card">
             <div>
               <div class="t-name">${t.traderId?.name || "Trader"}</div>
-              <div class="t-sub">Trade Amount $${t.minAmount}</div>
+              <div class="t-sub">Min Amount $${t.minAmount}</div>
             </div>
             <div>
               <div class="t-return">${t.profitPercent}%</div>
@@ -239,10 +236,26 @@ function renderHome(){
 /* ================= CHART ================= */
 function renderChart(){
   screen.innerHTML = `
-    <div class="chart-card">
-      <iframe src="https://s.tradingview.com/widgetembed/?symbol=XAUUSD&interval=15&theme=dark"></iframe>
+    <div class="chart-grid">
+      <div class="chart-card" onclick="openChart('XAUUSD')">
+        <div class="chart-head">Gold <span class="live">LIVE</span></div>
+        <iframe src="https://s.tradingview.com/widgetembed/?symbol=XAUUSD&interval=15&theme=dark"></iframe>
+      </div>
+
+      <div class="chart-card" onclick="openChart('BTCUSDT')">
+        <div class="chart-head">BTC <span class="live">LIVE</span></div>
+        <iframe src="https://s.tradingview.com/widgetembed/?symbol=BTCUSDT&interval=15&theme=dark"></iframe>
+      </div>
     </div>
   `;
+}
+
+function openChart(symbol){
+  openModal(`
+    <div class="chart-full">
+      <iframe src="https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=15&theme=dark"></iframe>
+    </div>
+  `);
 }
 
 /* ================= MY TRADES ================= */
@@ -251,8 +264,14 @@ function renderMyTrades(){
     ? `<div class="empty">No trades yet</div>`
     : state.myTrades.map(t => `
         <div class="trade-card">
-          <div>${t.traderId?.name || "Trader"}</div>
-          <div>$${t.amount}</div>
+          <div class="trade-top">
+            <div class="trade-name">${t.traderId?.name}</div>
+            <div class="trade-badge">${t.status}</div>
+          </div>
+          <div class="trade-row">
+            <span>Amount</span>
+            <span>$${t.amount}</span>
+          </div>
         </div>
       `).join("");
 }
@@ -263,8 +282,14 @@ function renderHistory(){
     ? `<div class="empty">No history</div>`
     : state.history.map(h => `
         <div class="history-card">
-          <div>${h.type}</div>
-          <div>$${h.amount}</div>
+          <div>
+            <div class="h-type">${h.type}</div>
+            <div class="h-date">${new Date(h.createdAt).toLocaleString()}</div>
+          </div>
+          <div class="h-right">
+            <div class="h-amt">$${h.amount}</div>
+            <div class="h-status ${h.status.toLowerCase()}">${h.status}</div>
+          </div>
         </div>
       `).join("");
 }
@@ -292,7 +317,32 @@ function openDeposit(){
 }
 
 function openWithdraw(){
-  openModal(`<p>Withdraw request will be pending until admin approval</p>`);
+  openModal(`<p>Withdraw request will be pending until approval</p>`);
+}
+
+/* ================= PROFILE ================= */
+function openProfileEdit(){
+  openModal(`
+    <h3>Edit Profile</h3>
+    <input id="editName" placeholder="Name" value="${state.user.name}" />
+    <input id="editPhoto" type="file" />
+    <button class="btn full" onclick="saveProfile()">Save</button>
+  `);
+}
+
+function saveProfile(){
+  showToast("Profile updated");
+  closeModal();
+}
+
+/* ================= SUPPORT ================= */
+function openSupport(){
+  window.location.href = "./support.html";
+}
+
+/* ================= ADDRESS ================= */
+function openWithdrawAddress(){
+  window.location.href = "./withdrawal-address.html";
 }
 
 /* ================= LOGOUT ================= */
