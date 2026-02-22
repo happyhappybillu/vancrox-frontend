@@ -1,8 +1,5 @@
 /* =========================================================
-   TRADER DASHBOARD – FRONTEND JS (FINAL – STABLE FIXED)
-   Project: VANCROX
-   Role: Trader
-   Auth: auth.js
+   VANCROX • TRADER DASHBOARD
 ========================================================= */
 
 /* 🔐 Protect page FIRST */
@@ -31,83 +28,112 @@ const state = {
 
 /* ================= HELPERS ================= */
 function showToast(msg){
+  if (!toast) return alert(msg);
   toast.innerText = msg;
   toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),2600);
+  setTimeout(() => toast.classList.remove("show"), 2600);
 }
 
 function openModal(html){
+  if (!modal || !modalCard) return;
   modalCard.innerHTML = html;
   modal.classList.remove("hidden");
 }
+
 function closeModal(){
+  if (!modal || !modalCard) return;
   modal.classList.add("hidden");
   modalCard.innerHTML = "";
 }
-modal.onclick = e=>{
-  if(e.target.id === "modal") closeModal();
-};
+
+if (modal){
+  modal.onclick = e => {
+    if (e.target.id === "modal") closeModal();
+  };
+}
 
 function fileToBase64(file){
-  return new Promise((res,rej)=>{
+  return new Promise((res, rej) => {
     const r = new FileReader();
-    r.onload = ()=>res(r.result);
+    r.onload = () => res(r.result);
     r.onerror = rej;
     r.readAsDataURL(file);
   });
 }
 
-/* ================= SAFE INIT ================= */
+/* ================= INIT ================= */
 document.addEventListener("DOMContentLoaded", async () => {
+  console.log("✅ Trader DOM READY");
   await init();
 });
 
+async function init(){
+  try {
+    console.log("🚀 Trader INIT START");
 
-(async function init(){
+    const me = await api("/api/auth/me", "GET", null, true);
+    console.log("👤 Trader ME:", me);
 
-  await requireAuth("trader"); // 🔥 VERY IMPORTANT
+    if (!me.ok || !me.data?.user){
+      showToast("Session expired");
+      return logout();
+    }
 
-  const me = await api("/api/auth/me","GET",null,true);
+    if (me.data.user.role !== "trader"){
+      showToast("Unauthorized");
+      return logout();
+    }
 
-  if(!me.ok || !me.data?.user){
-    showToast("Session expired");
-    return logout();
+    state.trader = me.data.user;
+
+    const nameEl = document.getElementById("tName");
+    const idEl = document.getElementById("tId");
+
+    if (nameEl) nameEl.innerText = state.trader.name || "Trader";
+    if (idEl) idEl.innerText = "TID" + (state.trader.tid || "----");
+
+    await loadStatus();
+    render();
   }
-
-  if(me.data.user.role !== "trader"){
-    return logout();
+  catch (err){
+    console.error("❌ Trader INIT ERROR:", err);
+    showToast("Initialization failed");
   }
+}
 
-  state.trader = me.data.user;
-
-  document.getElementById("tName").innerText = state.trader.name || "Trader";
-  document.getElementById("tId").innerText = "TID" + (state.trader.tid || "----");
-
-  await loadStatus();
-  render();
-})();
 /* ================= LOAD STATUS ================= */
 async function loadStatus(){
-  const r = await api("/api/trader/status","GET",null,true);
+  try {
+    console.log("📡 Loading trader status...");
 
-  if(!r.ok){
-    showToast("Failed to load status");
-    return;
+    const r = await api("/api/trader/status", "GET", null, true);
+
+    if (!r.ok){
+      showToast("Failed to load status");
+      return;
+    }
+
+    const d = r.data || {};
+
+    state.historyStatus = d.historyStatus || "NOT_SUBMITTED";
+    state.dashboardUnlocked = d.dashboardUnlocked || false;
+    state.securityMoney = d.securityMoney || 0;
+    state.earning = d.earning || 0;
+    state.level = d.level || 1;
+    state.maxAds = d.maxAds || 1;
+
+    console.log("✅ Trader Status Loaded:", state);
   }
-
-  const d = r.data || {};
-
-  state.historyStatus = d.historyStatus || "NOT_SUBMITTED";
-  state.dashboardUnlocked = d.dashboardUnlocked || false;
-  state.securityMoney = d.securityMoney || 0;
-  state.earning = d.earning || 0;
-  state.level = d.level || 1;
-  state.maxAds = d.maxAds || 1;
+  catch (err){
+    console.error("❌ Status load error:", err);
+  }
 }
 
 /* ================= RENDER ROOT ================= */
 function render(){
-  if(!state.dashboardUnlocked){
+  if (!screen) return;
+
+  if (!state.dashboardUnlocked){
     renderLockedFlow();
   } else {
     renderDashboard();
@@ -117,7 +143,7 @@ function render(){
 /* ================= LOCKED FLOW ================= */
 function renderLockedFlow(){
 
-  if(state.historyStatus === "NOT_SUBMITTED"){
+  if (state.historyStatus === "NOT_SUBMITTED"){
     screen.innerHTML = `
       <div class="card center">
         <h3>Upload 2 Years Trading History</h3>
@@ -128,7 +154,7 @@ function renderLockedFlow(){
     return;
   }
 
-  if(state.historyStatus === "PENDING"){
+  if (state.historyStatus === "PENDING"){
     screen.innerHTML = `
       <div class="card center">
         <h3>Verification Pending</h3>
@@ -137,7 +163,7 @@ function renderLockedFlow(){
     return;
   }
 
-  if(state.historyStatus === "REJECTED"){
+  if (state.historyStatus === "REJECTED"){
     screen.innerHTML = `
       <div class="card center">
         <h3>Verification Rejected</h3>
@@ -152,23 +178,32 @@ function renderLockedFlow(){
 
 /* ================= HISTORY UPLOAD ================= */
 async function submitHistory(){
-  const file = document.getElementById("historyFile").files[0];
-  if(!file) return showToast("History file required");
+  try {
+    const fileEl = document.getElementById("historyFile");
+    const file = fileEl?.files?.[0];
 
-  const proof = await fileToBase64(file);
+    if (!file) return showToast("History file required");
 
-  const r = await api(
-    "/api/trader/upload-history",
-    "POST",
-    { proof },
-    true
-  );
+    const proof = await fileToBase64(file);
 
-  if(!r.ok) return showToast(r.data?.message || "Upload failed");
+    const r = await api(
+      "/api/trader/upload-history",
+      "POST",
+      { proof },
+      true
+    );
 
-  showToast("History submitted");
-  await loadStatus();
-  render();
+    if (!r.ok) return showToast(r.data?.message || "Upload failed");
+
+    showToast("History submitted");
+
+    await loadStatus();
+    render();
+  }
+  catch (err){
+    console.error("❌ History upload error:", err);
+    showToast("Upload failed");
+  }
 }
 
 /* ================= SECURITY ================= */
@@ -182,51 +217,62 @@ function renderSecurityDeposit(){
 }
 
 async function openSecurityDeposit(){
+  try {
+    const a = await api("/api/wallet/system-address", "GET", null, true);
+    const addr = a.data?.addresses || {};
 
-  const a = await api("/api/wallet/system-address","GET",null,true);
-  const addr = a.data?.addresses || {};
+    openModal(`
+      <div class="modal-title">Security Deposit</div>
 
-  openModal(`
-    <div class="modal-title">Security Deposit</div>
+      ${["erc20","trc20","bep20"].map(n => `
+        <div class="addr-block">
+          <label>${n.toUpperCase()}</label>
+          <input readonly value="${addr[n] || ""}">
+        </div>`).join("")}
 
-    ${["erc20","trc20","bep20"].map(n=>`
-      <div class="addr-block">
-        <label>${n.toUpperCase()}</label>
-        <input readonly value="${addr[n] || ""}">
-      </div>`).join("")}
+      <input id="secAmt" type="number" placeholder="Amount (min 100)">
+      <input id="secProof" type="file" accept="image/*">
 
-    <input id="secAmt" type="number" placeholder="Amount (min 100)">
-    <input id="secProof" type="file" accept="image/*">
-
-    <button class="btn full" onclick="submitSecurity()">Submit</button>
-    <button class="btn ghost full" onclick="closeModal()">Cancel</button>
-  `);
+      <button class="btn full" onclick="submitSecurity()">Submit</button>
+      <button class="btn ghost full" onclick="closeModal()">Cancel</button>
+    `);
+  }
+  catch (err){
+    console.error("❌ Open security modal error:", err);
+    showToast("Failed to load addresses");
+  }
 }
 
 async function submitSecurity(){
+  try {
+    const amt = Number(document.getElementById("secAmt")?.value || 0);
+    const file = document.getElementById("secProof")?.files?.[0];
 
-  const amt = Number(document.getElementById("secAmt").value || 0);
-  const file = document.getElementById("secProof").files[0];
+    if (amt < 100 || !file){
+      return showToast("Invalid details");
+    }
 
-  if(amt < 100 || !file)
-    return showToast("Invalid details");
+    const proof = await fileToBase64(file);
 
-  const proof = await fileToBase64(file);
+    const r = await api(
+      "/api/trader/security-deposit",
+      "POST",
+      { amount: amt, proof },
+      true
+    );
 
-  const r = await api(
-    "/api/trader/security-deposit",
-    "POST",
-    { amount: amt, proof },
-    true
-  );
+    if (!r.ok) return showToast(r.data?.message || "Submission failed");
 
-  if(!r.ok) return showToast(r.data?.message || "Submission failed");
+    closeModal();
+    showToast("Security submitted");
 
-  closeModal();
-  showToast("Security submitted");
-
-  await loadStatus();
-  render();
+    await loadStatus();
+    render();
+  }
+  catch (err){
+    console.error("❌ Security submit error:", err);
+    showToast("Submission failed");
+  }
 }
 
 /* ================= DASHBOARD ================= */
@@ -256,74 +302,86 @@ function openCreateAd(){
 }
 
 async function createAd(){
+  try {
+    const pct = Number(document.getElementById("adPct")?.value || 0);
 
-  const pct = Number(document.getElementById("adPct").value || 0);
+    if (pct <= 0){
+      return showToast("Invalid percent");
+    }
 
-  if(pct <= 0)
-    return showToast("Invalid percent");
+    const r = await api(
+      "/api/trader/create-ad",
+      "POST",
+      { profitPercent: pct },
+      true
+    );
 
-  const r = await api(
-    "/api/trader/create-ad",
-    "POST",
-    { profitPercent: pct },
-    true
-  );
+    if (!r.ok){
+      return showToast(r.data?.message || "Failed");
+    }
 
-  if(!r.ok)
-    return showToast(r.data?.message || "Failed");
+    closeModal();
+    showToast("Ad created");
 
-  closeModal();
-  showToast("Ad created");
-
-  loadInventory();
+    loadInventory();
+  }
+  catch (err){
+    console.error("❌ Create ad error:", err);
+    showToast("Failed");
+  }
 }
 
 /* ================= INVENTORY ================= */
 async function loadInventory(){
+  try {
+    const el = document.getElementById("invList");
+    if (!el) return;
 
-  const el = document.getElementById("invList");
+    const r = await api("/api/trader/inventory", "GET", null, true);
 
-  const r = await api("/api/trader/inventory","GET",null,true);
+    if (!r.ok){
+      el.innerHTML = "Failed to load trades";
+      return;
+    }
 
-  if(!r.ok){
-    el.innerHTML = "Failed to load trades";
-    return;
+    const list = r.data.items || [];
+
+    el.innerHTML = list.length
+      ? list.map(t => `
+          <div class="trade-card">
+            <b>${t.investorName}</b>
+            <div>Status: ${t.status}</div>
+
+            ${
+              t.status === "WAITING_TRADER_CONFIRMATION"
+              ? `
+                <button onclick="confirmTrade('${t._id}')">Confirm</button>
+                <button onclick="rejectTrade('${t._id}')">Reject</button>
+              `
+              : ""
+            }
+          </div>
+        `).join("")
+      : "No active trades";
   }
-
-  const list = r.data.items || [];
-
-  el.innerHTML = list.length
-    ? list.map(t=>`
-      <div class="trade-card">
-        <b>${t.investorName}</b>
-        <div>Status: ${t.status}</div>
-
-        ${
-          t.status === "WAITING_TRADER_CONFIRMATION"
-          ? `
-            <button onclick="confirmTrade('${t._id}')">Confirm</button>
-            <button onclick="rejectTrade('${t._id}')">Reject</button>
-          `
-          : ""
-        }
-      </div>
-    `).join("")
-    : "No active trades";
+  catch (err){
+    console.error("❌ Inventory load error:", err);
+  }
 }
 
 /* ================= ACTIONS ================= */
 async function confirmTrade(id){
-  await api("/api/trader/confirm-trade","POST",{ hireId: id },true);
+  await api("/api/trader/confirm-trade", "POST", { hireId: id }, true);
   loadInventory();
 }
 
 async function rejectTrade(id){
-  await api("/api/trader/reject-trade","POST",{ hireId: id },true);
+  await api("/api/trader/reject-trade", "POST", { hireId: id }, true);
   loadInventory();
 }
 
 /* ================= LOGOUT ================= */
 function logout(){
   localStorage.removeItem("vancrox_auth");
-  location.href="./login.html";
+  location.href = "./login.html";
 }
