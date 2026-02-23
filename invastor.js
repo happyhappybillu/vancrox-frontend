@@ -2,7 +2,6 @@
    VANCROX • INVESTOR DASHBOARD (FINAL)
 ========================= */
 
-/* 🔐 Protect page */
 requireAuth("investor");
 
 /* ================= CONFIG ================= */
@@ -43,6 +42,12 @@ modal?.addEventListener("click", e => {
   if (e.target.id === "modal") closeModal();
 });
 
+function copyText(text){
+  if (!text) return;
+  navigator.clipboard.writeText(text);
+  showToast("Copied");
+}
+
 /* ================= STATE ================= */
 const state = {
   tab: "home",
@@ -61,12 +66,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function initUI(){
-
-  /* Drawer */
   menuBtn?.addEventListener("click", () => drawer.classList.add("open"));
   closeDrawer?.addEventListener("click", () => drawer.classList.remove("open"));
 
-  /* Profile pop */
   profileBtn?.addEventListener("click", () => {
     profilePop.classList.toggle("open");
   });
@@ -210,26 +212,6 @@ function renderHome(){
         <button class="btn ghost" onclick="openWithdraw()">Withdraw</button>
       </div>
     </section>
-
-    <section class="section">
-      <div class="sec-title">Top Traders</div>
-      ${
-        state.topTraders.length === 0
-        ? `<div class="empty">No any traders active</div>`
-        : state.topTraders.map(t => `
-          <div class="trader-card">
-            <div>
-              <div class="t-name">${t.traderId?.name || "Trader"}</div>
-              <div class="t-sub">Min Amount $${t.minAmount}</div>
-            </div>
-            <div>
-              <div class="t-return">${t.profitPercent}%</div>
-              <button class="btn-small" onclick="hireTrader('${t._id}')">Hire</button>
-            </div>
-          </div>
-        `).join("")
-      }
-    </section>
   `;
 }
 
@@ -237,43 +219,21 @@ function renderHome(){
 function renderChart(){
   screen.innerHTML = `
     <div class="chart-grid">
-      <div class="chart-card" onclick="openChart('XAUUSD')">
-        <div class="chart-head">Gold <span class="live">LIVE</span></div>
+      <div class="chart-card">
         <iframe src="https://s.tradingview.com/widgetembed/?symbol=XAUUSD&interval=15&theme=dark"></iframe>
-      </div>
-
-      <div class="chart-card" onclick="openChart('BTCUSDT')">
-        <div class="chart-head">BTC <span class="live">LIVE</span></div>
-        <iframe src="https://s.tradingview.com/widgetembed/?symbol=BTCUSDT&interval=15&theme=dark"></iframe>
       </div>
     </div>
   `;
 }
-
 function openChart(symbol){
   openModal(`
     <div class="chart-full">
-      <iframe src="https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=15&theme=dark"></iframe>
+      <iframe 
+        src="https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=15&theme=dark"
+        allowfullscreen
+      ></iframe>
     </div>
   `);
-}
-
-/* ================= MY TRADES ================= */
-function renderMyTrades(){
-  screen.innerHTML = state.myTrades.length === 0
-    ? `<div class="empty">No trades yet</div>`
-    : state.myTrades.map(t => `
-        <div class="trade-card">
-          <div class="trade-top">
-            <div class="trade-name">${t.traderId?.name}</div>
-            <div class="trade-badge">${t.status}</div>
-          </div>
-          <div class="trade-row">
-            <span>Amount</span>
-            <span>$${t.amount}</span>
-          </div>
-        </div>
-      `).join("");
 }
 
 /* ================= HISTORY ================= */
@@ -288,61 +248,88 @@ function renderHistory(){
           </div>
           <div class="h-right">
             <div class="h-amt">$${h.amount}</div>
-            <div class="h-status ${h.status.toLowerCase()}">${h.status}</div>
+            <div class="h-status">${h.status}</div>
           </div>
         </div>
       `).join("");
 }
 
-/* ================= ACTIONS ================= */
-function hireTrader(adId){
+/* ================= MODALS ================= */
+
+function openDeposit(){
   openModal(`
-    <h3>Confirm Trade</h3>
-    <button class="btn full" onclick="confirmHire('${adId}')">Confirm</button>
+    <h3>Deposit USDT</h3>
+
+    <label>Amount (Min 50)</label>
+    <input id="depAmount" type="number"/>
+
+    <label>Upload Proof</label>
+    <input id="depProof" type="file"/>
+
+    <button class="btn full" onclick="submitDeposit()">Submit</button>
   `);
 }
 
-async function confirmHire(adId){
-  const r = await api("/api/investor/hire", "POST", { traderAdId: adId }, true);
-  if (!r.ok) return showToast(r.data?.message || "Failed");
+async function submitDeposit(){
+  const amount = Number(document.getElementById("depAmount").value);
+  const file = document.getElementById("depProof").files[0];
 
-  closeModal();
-  showToast("Trade started");
-  await loadAll();
-}
+  if (!amount || amount < 50)
+    return showToast("Minimum deposit is 50 USDT");
 
-/* ================= MODALS ================= */
-function openDeposit(){
-  openModal(`<pre>${JSON.stringify(state.addresses, null, 2)}</pre>`);
+  if (!file)
+    return showToast("Upload proof");
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const r = await api("/api/wallet/deposit", "POST", {
+      amount,
+      proof: reader.result
+    }, true);
+
+    if (!r.ok) return showToast(r.data?.message || "Deposit failed");
+
+    closeModal();
+    showToast("Deposit submitted");
+    await loadAll();
+  };
+  reader.readAsDataURL(file);
 }
 
 function openWithdraw(){
-  openModal(`<p>Withdraw request will be pending until approval</p>`);
-}
-
-/* ================= PROFILE ================= */
-function openProfileEdit(){
   openModal(`
-    <h3>Edit Profile</h3>
-    <input id="editName" placeholder="Name" value="${state.user.name}" />
-    <input id="editPhoto" type="file" />
-    <button class="btn full" onclick="saveProfile()">Save</button>
+    <h3>Withdraw USDT</h3>
+
+    <label>Amount (Min 100)</label>
+    <input id="wdAmount" type="number"/>
+
+    <label>Withdraw Address</label>
+    <input id="wdAddress"/>
+
+    <button class="btn full" onclick="submitWithdraw()">Submit</button>
   `);
 }
 
-function saveProfile(){
-  showToast("Profile updated");
+async function submitWithdraw(){
+  const amount = Number(document.getElementById("wdAmount").value);
+  const withdrawTo = document.getElementById("wdAddress").value;
+
+  if (!amount || amount < 100)
+    return showToast("Minimum withdraw is 100 USDT");
+
+  if (!withdrawTo)
+    return showToast("Enter withdraw address");
+
+  const r = await api("/api/investor/withdraw", "POST", {
+    amount,
+    withdrawTo
+  }, true);
+
+  if (!r.ok) return showToast(r.data?.message || "Withdraw failed");
+
   closeModal();
-}
-
-/* ================= SUPPORT ================= */
-function openSupport(){
-  window.location.href = "./support.html";
-}
-
-/* ================= ADDRESS ================= */
-function openWithdrawAddress(){
-  window.location.href = "./withdrawal-address.html";
+  showToast("Withdraw request submitted");
+  await loadAll();
 }
 
 /* ================= LOGOUT ================= */
