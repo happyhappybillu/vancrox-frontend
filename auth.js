@@ -1,9 +1,12 @@
 /* ===========================
    VANCROX Frontend Auth (FINAL – FIXED)
+   ✔ Investor / Trader
+   ✔ Admin safe
+   ✔ No auto logout bug
+   ✔ No feature removed
 =========================== */
 
-/* 🌍 GLOBAL API BASE (NO CONFLICT) */
-window.API_BASE = "https://vancrox-backend.onrender.com";
+var API_BASE = "https://vancrox-backend.onrender.com";
 
 /* ---------- Helpers ---------- */
 function $(id) {
@@ -48,7 +51,6 @@ function redirectDashboard(role) {
 
 /* ---------- API Helper ---------- */
 async function api(path, method = "GET", body = null, withAuth = false) {
-
   const headers = { "Content-Type": "application/json" };
 
   if (withAuth) {
@@ -58,7 +60,7 @@ async function api(path, method = "GET", body = null, withAuth = false) {
     }
   }
 
-  const res = await fetch(`${window.API_BASE}${path}`, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : null,
@@ -72,16 +74,15 @@ async function api(path, method = "GET", body = null, withAuth = false) {
   return { ok: res.ok, data };
 }
 
-/* ---------- Sync real profile ---------- */
+/* ---------- Sync real profile (INVESTOR / TRADER ONLY) ---------- */
 async function syncMe() {
-
   const a = getAuth();
   if (!a?.token) return false;
 
+  /* 🔥 ADMIN KE LIYE SKIP */
   if (a.role === "admin") return true;
 
   const { ok, data } = await api("/api/auth/me", "GET", null, true);
-
   if (!ok || !data?.user) return false;
 
   saveAuth({
@@ -99,33 +100,31 @@ async function syncMe() {
 
 /* ---------- Route Protection ---------- */
 async function requireAuth(role) {
-
   const auth = getAuth();
-
   if (!auth?.token || !auth?.role) {
     window.location.href = "./login.html";
     return;
   }
 
+  /* 🔥 ADMIN PAGE = NO /me CHECK */
   if (auth.role === "admin") return;
 
   const ok = await syncMe();
-
   if (!ok) {
     logout();
     return;
   }
 
   const fresh = getAuth();
-
   if (role && fresh.role !== role) {
     redirectDashboard(fresh.role);
   }
 }
 
-/* ---------- REGISTER ---------- */
+/* ===========================
+   REGISTER
+=========================== */
 async function handleRegister(e) {
-
   e.preventDefault();
 
   const role = $("role").value;
@@ -165,9 +164,10 @@ async function handleRegister(e) {
   setTimeout(() => redirectDashboard(data.role), 600);
 }
 
-/* ---------- LOGIN ---------- */
+/* ===========================
+   LOGIN (INVESTOR / TRADER)
+=========================== */
 async function handleLogin(e) {
-
   e.preventDefault();
 
   const emailOrMobile = $("email").value.trim();
@@ -197,9 +197,10 @@ async function handleLogin(e) {
   setTimeout(() => redirectDashboard(data.role), 600);
 }
 
-/* ---------- AUTO BIND ---------- */
+/* ===========================
+   AUTO BIND
+=========================== */
 document.addEventListener("DOMContentLoaded", () => {
-
   const loginForm = $("loginForm");
   if (loginForm) loginForm.addEventListener("submit", handleLogin);
 
@@ -212,12 +213,10 @@ document.addEventListener("DOMContentLoaded", () => {
   if (location.pathname.includes("investor-dashboard.html")) {
     requireAuth("investor");
   }
-
   if (location.pathname.includes("trader-dashboard.html")) {
     requireAuth("trader");
   }
-
   if (location.pathname.includes("admin.html")) {
-    requireAuth();
+    requireAuth(); // admin
   }
 });

@@ -1,13 +1,10 @@
 /* =====================================================
-   SYSTEM CONTROL PANEL – ADMIN JS (FINAL)
-   VANCROX
+   VANCROX • ADMIN PANEL (FINAL FIXED)
    ===================================================== */
 
-/* ================= CONFIG ================= */
 const API = "https://vancrox-backend.onrender.com";
 
 /* ================= AUTH ================= */
-// 🔐 auth.js already loaded in admin-panel.html
 requireAuth("admin");
 
 function getToken() {
@@ -16,11 +13,12 @@ function getToken() {
 }
 
 /* ================= API HELPER ================= */
-async function api(path, method = "GET", body) {
+async function api(path, method = "GET", body = null) {
   const token = getToken();
+
   if (!token) {
     logout();
-    return { ok: false };
+    return { ok: false, data: {} };
   }
 
   const res = await fetch(API + path, {
@@ -36,37 +34,15 @@ async function api(path, method = "GET", body) {
   return { ok: res.ok, data };
 }
 
-/* ================= GLOBAL STATE ================= */
-const state = {
-  users: [],
-  investors: [],
-  traders: [],
-  pending: [],
-  tickets: [],
-  notifications: [],
-  addresses: {},
-};
+/* ================= OVERVIEW ================= */
+async function loadOverview() {
+  const r = await api("/api/admin/dashboard");
+  if (!r.ok) return;
 
-/* ================= NAV ================= */
-function openView(id) {
-  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-  document.getElementById(id).classList.add("active");
-
-  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
-  document.querySelector(`[data-view="${id}"]`)?.classList.add("active");
-}
-
-/* ================= DASHBOARD ================= */
-async function loadDashboard() {
-  const u = await api("/api/admin/users");
-  if (u.ok) {
-    state.users = u.data.users || [];
-    state.investors = state.users.filter(x => x.role === "investor");
-    state.traders = state.users.filter(x => x.role === "trader");
-  }
-
-  document.getElementById("statInvestors").innerText = state.investors.length;
-  document.getElementById("statTraders").innerText = state.traders.length;
+  statInvestors.innerText = r.data.totalInvestors || 0;
+  statTraders.innerText = r.data.totalTraders || 0;
+  statPending.innerText = r.data.pendingRequests || 0;
+  statTickets.innerText = r.data.openTickets || 0;
 }
 
 /* ================= USERS ================= */
@@ -74,22 +50,22 @@ async function loadInvestors() {
   const r = await api("/api/admin/users?role=investor");
   if (!r.ok) return;
 
-  const tbody = document.getElementById("investorBody");
-  tbody.innerHTML = "";
+  investorList.innerHTML = "";
 
   r.data.users.forEach(u => {
-    tbody.innerHTML += `
-      <tr>
+    investorList.innerHTML += `
+      <tr onclick="viewUser('${u._id}')">
         <td>${u.name}</td>
         <td>UID${u.uid}</td>
-        <td>${u.email || u.mobile || "-"}</td>
+        <td>${u.email || "-"}</td>
+        <td>$${(u.balance || 0).toFixed(2)}</td>
         <td>
           <span class="tag ${u.isBlocked ? "failed" : "success"}">
             ${u.isBlocked ? "Blocked" : "Active"}
           </span>
         </td>
         <td>
-          <button onclick="toggleBlock('${u._id}', ${!u.isBlocked})">
+          <button onclick="event.stopPropagation(); toggleBlock('${u._id}', ${!u.isBlocked})">
             ${u.isBlocked ? "Unblock" : "Block"}
           </button>
         </td>
@@ -102,108 +78,156 @@ async function loadTraders() {
   const r = await api("/api/admin/users?role=trader");
   if (!r.ok) return;
 
-  const tbody = document.getElementById("traderBody");
-  tbody.innerHTML = "";
+  traderList.innerHTML = "";
 
   r.data.users.forEach(u => {
-    tbody.innerHTML += `
-      <tr>
+    traderList.innerHTML += `
+      <tr onclick="viewUser('${u._id}')">
         <td>${u.name}</td>
         <td>TID${u.tid}</td>
         <td>${u.email || "-"}</td>
-        <td><span class="tag pending">Verification Pending</span></td>
-        <td><button onclick="viewTrader('${u._id}')">View</button></td>
-      </tr>
-    `;
-  });
-}
-
-async function toggleBlock(userId, block) {
-  if (!confirm(block ? "Block this user?" : "Unblock this user?")) return;
-  await api(`/api/admin/block/${userId}`, "POST", { block });
-  loadInvestors();
-  loadTraders();
-}
-
-/* ================= PENDING ================= */
-async function loadPending() {
-  const r = await api("/api/admin/pending");
-  if (!r.ok) return;
-
-  const tbody = document.getElementById("pendingBody");
-  tbody.innerHTML = "";
-
-  r.data.list.forEach(p => {
-    tbody.innerHTML += `
-      <tr>
-        <td>${p.userName}</td>
-        <td>${p.userCode}</td>
-        <td>${p.type}</td>
-        <td>$${p.amount}</td>
-        <td>${new Date(p.createdAt).toLocaleString()}</td>
+        <td>${u.traderVerificationStatus || "NOT_SUBMITTED"}</td>
+        <td>$${(u.securityMoney || 0).toFixed(2)}</td>
+        <td>$${(u.traderTotalEarning || 0).toFixed(2)}</td>
+        <td>${u.traderLevel || 1}</td>
         <td>
-          <button onclick="approve('${p._id}','${p.type}')">Approve</button>
-          <button onclick="reject('${p._id}','${p.type}')">Reject</button>
+          <button onclick="event.stopPropagation(); toggleBlock('${u._id}', ${!u.isBlocked})">
+            ${u.isBlocked ? "Unblock" : "Block"}
+          </button>
         </td>
       </tr>
     `;
   });
 }
 
-async function approve(id, type) {
-  await api(`/api/admin/approve-${type}`, "POST", { id });
-  loadPending();
+async function toggleBlock(userId, block) {
+  await api(`/api/admin/users/${userId}/block`, "POST", { block });
+  loadInvestors();
+  loadTraders();
 }
 
-async function reject(id, type) {
-  await api(`/api/admin/reject-${type}`, "POST", { id });
-  loadPending();
-}
-
-/* ================= SUPPORT ================= */
-async function loadTickets() {
-  const r = await api("/api/support/all");
+/* ================= USER HISTORY ================= */
+async function viewUser(userId) {
+  const r = await api(`/api/admin/users`);
   if (!r.ok) return;
 
-  const tbody = document.getElementById("supportBody");
-  tbody.innerHTML = "";
+  const user = r.data.users.find(u => u._id === userId);
+  if (!user) return;
 
-  r.data.tickets.forEach(t => {
-    tbody.innerHTML += `
+  const tx = await api(`/api/admin/transactions/pending`);
+
+  openModal(`
+    <h3>${user.name}</h3>
+    <p>${user.role.toUpperCase()}</p>
+    <p>ID: ${user.role === "investor" ? "UID"+user.uid : "TID"+user.tid}</p>
+  `);
+}
+
+/* ================= PENDING TX ================= */
+async function loadPending() {
+  const r = await api("/api/admin/transactions/pending");
+  if (!r.ok) return;
+
+  pendingList.innerHTML = "";
+
+  r.data.list.forEach(t => {
+    pendingList.innerHTML += `
       <tr>
-        <td>${t.userCode}</td>
-        <td>${t.name}</td>
-        <td>${t.message.slice(0,40)}...</td>
+        <td>${t.userId?.name || "-"}</td>
+        <td>${t.userId?.uid ? "UID"+t.userId.uid : "TID"+t.userId?.tid}</td>
+        <td>${t.userId?.role}</td>
+        <td>${t.type}</td>
+        <td>$${t.amount}</td>
         <td>${new Date(t.createdAt).toLocaleString()}</td>
-        <td><button onclick="openTicket('${t._id}')">View</button></td>
+        <td>
+          <button onclick="approveTx('${t._id}')">Approve</button>
+          <button onclick="rejectTx('${t._id}')">Reject</button>
+        </td>
       </tr>
     `;
   });
 }
 
-/* ================= ADDRESS ================= */
+async function approveTx(txId) {
+  await api("/api/admin/transactions/approve", "POST", { txId });
+  loadPending();
+}
+
+async function rejectTx(txId) {
+  await api("/api/admin/transactions/reject", "POST", { txId });
+  loadPending();
+}
+
+/* ================= SUPPORT ================= */
+async function loadTickets() {
+  const r = await api("/api/admin/support");
+  if (!r.ok) return;
+
+  ticketList.innerHTML = "";
+
+  r.data.list.forEach(t => {
+    ticketList.innerHTML += `
+      <tr>
+        <td>${t.userId?.name}</td>
+        <td>${t.userId?.role}</td>
+        <td>${t.message}</td>
+        <td>${new Date(t.createdAt).toLocaleString()}</td>
+        <td>
+          <button onclick="replyTicket('${t._id}')">Reply</button>
+          <button onclick="resolveTicket('${t._id}')">Resolve</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+async function replyTicket(ticketId) {
+  const reply = prompt("Enter reply:");
+  if (!reply) return;
+
+  await api("/api/admin/support/reply", "POST", { ticketId, reply });
+  loadTickets();
+}
+
+async function resolveTicket(ticketId) {
+  await api("/api/admin/support/resolve", "POST", { ticketId });
+  loadTickets();
+}
+
+/* ================= ADDRESSES ================= */
 async function loadAddresses() {
   const r = await api("/api/admin/addresses");
   if (!r.ok) return;
 
-  const d = r.data.doc || {};
-  document.getElementById("erc20").value = d.erc20 || "";
-  document.getElementById("trc20").value = d.trc20 || "";
-  document.getElementById("bep20").value = d.bep20 || "";
+  addrErc.value = r.data.addresses?.erc20 || "";
+  addrTrc.value = r.data.addresses?.trc20 || "";
+  addrBep.value = r.data.addresses?.bep20 || "";
 }
 
 async function saveAddresses() {
-  const erc20 = erc20.value;
-  const trc20 = trc20.value;
-  const bep20 = bep20.value;
+  await api("/api/admin/addresses", "POST", {
+    erc20: addrErc.value,
+    trc20: addrTrc.value,
+    bep20: addrBep.value,
+  });
 
-  await api("/api/admin/addresses", "POST", { erc20, trc20, bep20 });
-  alert("Addresses updated");
+  alert("Addresses updated ✅");
+}
+
+/* ================= NOTIFICATIONS ================= */
+async function sendNotification() {
+  const title = nTitle.value.trim();
+  const message = nMsg.value.trim();
+
+  if (!title || !message) return alert("Enter title & message");
+
+  await api("/api/admin/notifications", "POST", { title, message });
+  alert("Notification sent ✅");
 }
 
 /* ================= INIT ================= */
-(async function init() {
-  await loadDashboard();
+(async function init(){
+  await loadOverview();
   await loadInvestors();
   await loadTraders();
   await loadPending();

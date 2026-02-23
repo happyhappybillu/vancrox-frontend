@@ -10,12 +10,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
 
-  <!-- CSS (next step) -->
+  <!-- CSS -->
   <link rel="stylesheet" href="./admin.css"/>
 </head>
 
 <body>
-  
 
 <!-- ================= TOP BAR ================= -->
 <header class="sys-topbar">
@@ -39,20 +38,21 @@
   <!-- ========== SIDEBAR ========== -->
   <aside class="sys-sidebar">
 
-    <button class="nav-item active" onclick="go('overview')">Overview</button>
+    <button class="nav-item active" onclick="go('overview', this)">Overview</button>
 
     <div class="nav-title">User Management</div>
-    <button class="nav-item" onclick="go('investors')">Investors</button>
-    <button class="nav-item" onclick="go('traders')">Traders</button>
+    <button class="nav-item" onclick="go('investors', this)">Investors</button>
+    <button class="nav-item" onclick="go('traders', this)">Traders</button>
 
     <div class="nav-title">Operations</div>
-    <button class="nav-item" onclick="go('pending')">Pending Approvals</button>
-    <button class="nav-item" onclick="go('notifications')">Notifications</button>
-    <button class="nav-item" onclick="go('support')">Support Tickets</button>
+    <button class="nav-item" onclick="go('pending', this)">Pending Approvals</button>
+    <button class="nav-item" onclick="go('notifications', this)">Notifications</button>
+    <button class="nav-item" onclick="go('support', this)">Support Tickets</button>
 
     <div class="nav-title">System</div>
-    <button class="nav-item" onclick="go('addresses')">Address Change</button>
-    <button class="nav-item" onclick="go('reports')">Reports</button>
+    <button class="nav-item" onclick="go('addresses', this)">Address Change</button>
+    <button class="nav-item" onclick="go('reports', this)">Reports</button>
+
     <button class="nav-item danger" onclick="logout()">Logout</button>
 
   </aside>
@@ -101,10 +101,6 @@
     <section id="view-investors" class="view">
       <h2>Investors</h2>
 
-      <div class="table-tools">
-        <input type="text" placeholder="Search UID / Email"/>
-      </div>
-
       <table class="sys-table">
         <thead>
           <tr>
@@ -116,9 +112,7 @@
             <th>Action</th>
           </tr>
         </thead>
-        <tbody id="investorList">
-          <!-- dynamic -->
-        </tbody>
+        <tbody id="investorList"></tbody>
       </table>
     </section>
 
@@ -139,8 +133,7 @@
             <th>Action</th>
           </tr>
         </thead>
-        <tbody id="traderList">
-        </tbody>
+        <tbody id="traderList"></tbody>
       </table>
     </section>
 
@@ -160,8 +153,7 @@
             <th>View</th>
           </tr>
         </thead>
-        <tbody id="pendingList">
-        </tbody>
+        <tbody id="pendingList"></tbody>
       </table>
     </section>
 
@@ -198,8 +190,7 @@
             <th>View</th>
           </tr>
         </thead>
-        <tbody id="ticketList">
-        </tbody>
+        <tbody id="ticketList"></tbody>
       </table>
     </section>
 
@@ -230,21 +221,29 @@
   </main>
 </div>
 
-<!-- ================= SCRIPT (basic navigation only) ================= -->
+<!-- ================= NAVIGATION SCRIPT ================= -->
 <script>
-function go(view){
-  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
-  document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
-  document.getElementById("view-"+view).classList.add("active");
-  event.target.classList.add("active");
+function go(view, el){
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+
+  const target = document.getElementById("view-" + view);
+  if (target) target.classList.add("active");
+
+  if (el) el.classList.add("active");
 }
+
 function logout(){
-  location.href = "./admin-login.html";
+  localStorage.removeItem("vancrox_auth");
+  location.href = "./login.html";
 }
 </script>
-  <script src="./auth.js"></script>
-<script>requireAuth("admin");
-</script>
+
+<!-- ================= AUTH ================= -->
+<script src="./auth.js"></script>
+<script>requireAuth("admin");</script>
+
+<!-- ================= ADMIN LOGIC ================= -->
 <script src="./admin.js"></script>
 
 </body>
