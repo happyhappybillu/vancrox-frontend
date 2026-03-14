@@ -1,0 +1,316 @@
+/* =====================================================
+   SYSTEM CONTROL PANEL – ADMIN CSS
+   VANCROX
+   ===================================================== */
+
+:root{
+  --bg:#0b0e14;
+  --panel:#111827;
+  --panel-soft:#0f172a;
+  --border:rgba(255,255,255,0.08);
+  --text:#e5e7eb;
+  --muted:#9ca3af;
+  --primary:#3b82f6;
+  --danger:#ef4444;
+  --success:#22c55e;
+  --warning:#f59e0b;
+}
+
+/* RESET */
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+  font-family:'Rajdhani',sans-serif;
+}
+html,body{
+  background:var(--bg);
+  color:var(--text);
+  height:100%;
+}
+button,input,textarea{
+  font-family:inherit;
+}
+button{
+  cursor:pointer;
+}
+
+/* ================= TOP BAR ================= */
+.sys-topbar{
+  height:64px;
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 22px;
+}
+
+.sys-brand{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+.logo{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  background:linear-gradient(135deg,#2563eb,#3b82f6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  font-size:20px;
+}
+.sys-name{
+  font-weight:900;
+  letter-spacing:1px;
+}
+.sys-tag{
+  font-size:12px;
+  color:var(--muted);
+}
+
+.sys-user{
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+.sys-role{
+  font-size:13px;
+  color:var(--muted);
+  font-weight:700;
+}
+.btn-logout{
+  padding:8px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#020617;
+  color:var(--danger);
+  font-weight:800;
+}
+
+/* ================= LAYOUT ================= */
+.sys-layout{
+  display:grid;
+  grid-template-columns:260px 1fr;
+  height:calc(100vh - 64px);
+}
+
+/* ================= SIDEBAR ================= */
+.sys-sidebar{
+  background:var(--panel-soft);
+  border-right:1px solid var(--border);
+  padding:18px 14px;
+  overflow-y:auto;
+}
+
+.nav-title{
+  margin:18px 8px 6px;
+  font-size:12px;
+  text-transform:uppercase;
+  color:var(--muted);
+  font-weight:900;
+  letter-spacing:1px;
+}
+
+.nav-item{
+  width:100%;
+  padding:12px 14px;
+  margin-bottom:6px;
+  border-radius:10px;
+  border:1px solid transparent;
+  background:transparent;
+  color:var(--text);
+  font-weight:800;
+  text-align:left;
+}
+.nav-item:hover{
+  background:#020617;
+  border-color:var(--border);
+}
+.nav-item.active{
+  background:#020617;
+  border-color:var(--primary);
+  box-shadow:inset 3px 0 0 var(--primary);
+}
+.nav-item.danger{
+  color:var(--danger);
+}
+
+/* ================= CONTENT ================= */
+.sys-content{
+  padding:24px;
+  overflow-y:auto;
+}
+
+.view{
+  display:none;
+}
+.view.active{
+  display:block;
+}
+
+h2{
+  margin-bottom:18px;
+  font-size:22px;
+  font-weight:900;
+  letter-spacing:.4px;
+}
+
+/* ================= STATS ================= */
+.stat-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+}
+
+.stat-card{
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:18px;
+}
+.stat-card.warning{
+  border-color:rgba(245,158,11,.4);
+}
+.stat-label{
+  font-size:13px;
+  color:var(--muted);
+  font-weight:800;
+}
+.stat-value{
+  margin-top:10px;
+  font-size:28px;
+  font-weight:900;
+}
+
+/* ================= TABLE ================= */
+.table-tools{
+  margin-bottom:14px;
+}
+.table-tools input{
+  width:260px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#020617;
+  color:var(--text);
+}
+
+.sys-table{
+  width:100%;
+  border-collapse:collapse;
+  background:var(--panel);
+  border-radius:14px;
+  overflow:hidden;
+}
+
+.sys-table thead{
+  background:#020617;
+}
+.sys-table th{
+  padding:14px;
+  text-align:left;
+  font-size:13px;
+  font-weight:900;
+  color:var(--muted);
+  border-bottom:1px solid var(--border);
+}
+.sys-table td{
+  padding:14px;
+  border-bottom:1px solid var(--border);
+  font-weight:700;
+  font-size:14px;
+}
+
+.sys-table tr:hover{
+  background:#020617;
+}
+
+/* STATUS TAGS */
+.tag{
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:900;
+  display:inline-block;
+}
+.tag.success{
+  background:rgba(34,197,94,.12);
+  color:var(--success);
+}
+.tag.pending{
+  background:rgba(245,158,11,.12);
+  color:var(--warning);
+}
+.tag.failed{
+  background:rgba(239,68,68,.12);
+  color:var(--danger);
+}
+
+/* ================= FORM ================= */
+.form-card{
+  max-width:520px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:16px;
+  padding:18px;
+}
+.form-card label{
+  display:block;
+  margin-top:12px;
+  margin-bottom:6px;
+  font-weight:900;
+  font-size:13px;
+}
+.form-card input,
+.form-card textarea{
+  width:100%;
+  padding:12px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:#020617;
+  color:var(--text);
+  outline:none;
+}
+.form-card textarea{
+  resize:none;
+  min-height:90px;
+}
+
+/* ================= BUTTON ================= */
+.btn{
+  margin-top:18px;
+  padding:12px 18px;
+  border-radius:12px;
+  border:none;
+  background:linear-gradient(135deg,#2563eb,#3b82f6);
+  color:white;
+  font-weight:900;
+}
+
+/* ================= EMPTY ================= */
+.empty{
+  padding:28px;
+  text-align:center;
+  border-radius:16px;
+  border:1px dashed var(--border);
+  color:var(--muted);
+  font-weight:800;
+}
+
+/* ================= RESPONSIVE ================= */
+@media(max-width:1200px){
+  .stat-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+@media(max-width:900px){
+  .sys-layout{
+    grid-template-columns:1fr;
+  }
+  .sys-sidebar{
+    display:none;
+  }
+}

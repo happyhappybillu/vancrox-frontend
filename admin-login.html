@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VANCROX • Control Panel Login</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="./admin.css"/>
+</head>
+
+<body class="center-page">
+
+  <div class="panel-card">
+    <div class="brand-line">
+      <img src="./assets/logo.png" class="logo" alt="VANCROX"/>
+      <div>
+        <div class="bname">VANCROX</div>
+        <div class="btag">Control Panel</div>
+      </div>
+    </div>
+
+    <h2 class="title">Admin Login</h2>
+    <p class="muted">Restricted access</p>
+
+    <div class="hr"></div>
+
+    <label class="lbl">Email / Username</label>
+    <input id="email" placeholder="Enter email / username"/>
+
+    <label class="lbl">Password</label>
+    <input id="pass" type="password" placeholder="Enter password"/>
+
+    <button class="btn full" onclick="doLogin()">Login</button>
+
+    <div class="note">
+      Authorized administrators only.
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API = "https://vancrox-backend.onrender.com";
+    const toast = document.getElementById("toast");
+
+    function showToast(msg){
+      toast.innerText = msg;
+      toast.classList.add("show");
+      setTimeout(()=>toast.classList.remove("show"),2500);
+    }
+
+    async function doLogin(){
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("pass").value.trim();
+
+      if(!email || !password){
+        return showToast("Missing credentials");
+      }
+
+      try {
+        const res = await fetch(API + "/api/auth/admin-login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            emailOrMobile: email,
+            password: password
+          })
+        });
+
+        const data = await res.json().catch(()=>({}));
+
+        if(!res.ok){
+          return showToast(data?.message || "Invalid login");
+        }
+
+        if(data.role !== "admin"){
+          return showToast("Not an admin account");
+        }
+
+        // ✅ SAVE TOKEN
+        localStorage.setItem("vancrox_auth", JSON.stringify({
+          token: data.token,
+          role: data.role
+        }));
+
+        showToast("Login successful ✅");
+        setTimeout(()=>{
+          window.location.href = "./admin-panel.html";
+        }, 500);
+
+      } catch {
+        showToast("Server error");
+      }
+    }
+  </script>
+
+</body>
+</html>
