@@ -683,13 +683,13 @@ a{text-decoration:none;color:inherit;}
     <span class="nav-icon">🏠</span>Home
   </button>
   <button class="nav-item" data-tab="chart">
-    <span class="nav-icon">📈</span>Chart
+    <span class="nav-icon">💹</span>Chart
   </button>
   <button class="nav-item" data-tab="mytraders">
     <span class="nav-icon">👥</span>My Traders
   </button>
   <button class="nav-item" data-tab="history">
-    <span class="nav-icon">🕐</span>History
+    <span class="nav-icon">📜</span>History
   </button>
 </nav>
 
@@ -1012,7 +1012,7 @@ function renderTraders(){
   const ads=[];
   TRADERS.forEach(t=>{(t.ads||[]).forEach(ad=>{if(ad.active!==false)ads.push({t,ad});});});
   ads.sort((a,b)=>b.ad.returnPct-a.ad.returnPct);
-  if(!ads.length){el.innerHTML=`<div class="empty"><div class="empty-ic">📊</div><div class="empty-tx">No traders available</div></div>`;return;}
+  if(!ads.length){el.innerHTML=`<div class="empty"><div class="empty-ic">⏳</div><div class="empty-tx">No Active Traders Right Now</div></div>`;return;}
   el.innerHTML=ads.map(({t,ad})=>`
     <div class="trader-card">
       <div class="tc-avatar">${t.profilePhoto?`<img src="${xe(t.profilePhoto)}"/>`:"👤"}</div>
@@ -1052,7 +1052,7 @@ async function loadMyTrades(){
 }
 function renderMyTrades(){
   const el=document.getElementById("myTrEl");
-  if(!TRADES.length){el.innerHTML=`<div class="empty"><div class="empty-ic">👥</div><div class="empty-tx">No active trades</div><div class="empty-tx2">Go to Home and hire a trader</div></div>`;return;}
+  if(!TRADES.length){el.innerHTML=`<div class="empty"><div class="empty-ic">👥</div><div class="empty-tx">No Active Trades</div><div class="empty-tx2">Go to Home and hire a trader</div></div>`;return;}
   const SM={
     WAITING_CONFIRMATION:{cls:"status-wait",lbl:"⏳ Waiting Confirmation",pill:"p-wait",timer:true},
     ONGOING:{cls:"status-live",lbl:"🟢 Trade Ongoing",pill:"p-live",timer:false},
