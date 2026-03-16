@@ -794,7 +794,7 @@ a{text-decoration:none;color:inherit;}
       <input class="inp" id="wdAmtInp" type="number" placeholder="Enter amount (min $100)"/>
     </div>
     <div class="ibox blue" style="margin-top:4px;">
-      ℹ️ Sent to your saved wallet address after approval.
+      ℹ️ Fund are transferred to your saved wallet within 30 minutes.
     </div>
     <div class="modal-btns" style="margin-top:12px;">
       <button class="mbtn-cancel" onclick="closeModal('wdModal')">Cancel</button>
@@ -863,7 +863,7 @@ a{text-decoration:none;color:inherit;}
   </div>
   <div class="ppad">
     <div style="font-size:14px;font-weight:600;color:rgba(255,255,255,.50);margin-bottom:18px;">
-      Save wallets to receive approved withdrawals.
+      ⚠️Please ensure your wallet address is correct.
     </div>
     <div class="addr-card">
       <div class="addr-net">🟢 TRC20 (TRON)</div>
@@ -1022,11 +1022,11 @@ function renderTraders(){
       </div>
       <div class="tc-pct-col">
         <div class="tc-pct">${ad.returnPct}<sup>%</sup></div>
-        <div class="tc-limit">${fmtAmt(t.securityMoney)} limit</div>
+        <div class="tc-limit">${fmtAmt(t.securityMoney)} amount</div>
       </div>
       <div class="tc-hire-col">
         <button class="btn-hire" onclick="openHire('${t._id}','${ad._id}','${xe(t.name)}',${t.securityMoney})">Hire</button>
-        <div class="tc-fee">(10% fee/profit)</div>
+        <div class="tc-fee">(1USDT fee)</div>
       </div>
     </div>`).join("");
 }
