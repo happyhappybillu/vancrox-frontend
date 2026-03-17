@@ -1,0 +1,119 @@
+.about-section{
+
+min-height:100vh;
+padding:120px 20px;
+
+display:flex;
+justify-content:center;
+
+}
+
+.about-container{
+
+max-width:950px;
+
+background:rgba(18,25,45,0.75);
+backdrop-filter:blur(20px);
+
+border-radius:20px;
+
+padding:50px;
+
+border:1px solid rgba(255,255,255,0.05);
+
+box-shadow:
+0 0 60px rgba(0,150,255,0.15),
+inset 0 0 25px rgba(0,150,255,0.05);
+
+}
+
+.about-container h1{
+
+font-size:40px;
+color:white;
+
+margin-bottom:25px;
+
+}
+
+.about-container h2{
+
+margin-top:40px;
+
+color:#6bc2ff;
+
+font-size:22px;
+
+}
+
+.about-container p{
+
+color:#cfd6e4;
+
+line-height:1.7;
+
+margin-top:15px;
+
+}
+
+.security-list{
+
+margin-top:15px;
+padding-left:20px;
+
+color:#cfd6e4;
+
+}
+
+.security-list li{
+
+margin-bottom:6px;
+
+}
+
+.links-box{
+
+margin-top:15px;
+
+display:flex;
+gap:20px;
+flex-wrap:wrap;
+
+}
+
+.links-box a{
+
+padding:10px 18px;
+
+border-radius:8px;
+
+background:rgba(0,140,255,0.12);
+
+border:1px solid rgba(0,140,255,0.3);
+
+color:#5db7ff;
+
+text-decoration:none;
+
+}
+
+.links-box a:hover{
+
+background:rgba(0,140,255,0.25);
+
+}
+
+.support-email{
+
+font-size:18px;
+color:#5db7ff;
+
+}
+
+.copyright{
+
+margin-top:25px;
+
+color:#8893a5;
+
+}

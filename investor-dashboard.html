@@ -738,9 +738,9 @@ a{text-decoration:none;color:inherit;}
     <!-- STEP 2: Amount -->
     <div id="dep2" style="display:none;">
       <div class="su-title">Enter Amount</div>
-      <div class="su-sub" id="dep2-sub">Network: — · Min $50 USDT</div>
+      <div class="su-sub" id="dep2-sub">Network: — · Min $10 USDT</div>
       <div class="field">
-        <input class="inp inp-big" id="depAmt" type="number" placeholder="50" min="50"/>
+        <input class="inp inp-big" id="depAmt" type="number" placeholder="10" min="10"/>
       </div>
       <div class="ibox amber">
         ⚡ A unique decimal is added (e.g. 100 → 100.<b>37</b>)<br/>
@@ -788,10 +788,10 @@ a{text-decoration:none;color:inherit;}
       <span style="font-size:18px;font-weight:900;color:var(--success);" id="wdBal">$0.00</span>
     </div>
     <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,.45);margin-bottom:10px;">
-      Minimum withdrawal: <span style="color:var(--warn);">$100</span>
+      Minimum withdrawal: <span style="color:var(--warn);">$50</span>
     </div>
     <div class="field">
-      <input class="inp" id="wdAmtInp" type="number" placeholder="Enter amount (min $100)"/>
+      <input class="inp" id="wdAmtInp" type="number" placeholder="Enter amount (min $50)"/>
     </div>
     <div class="ibox blue" style="margin-top:4px;">
       ℹ️ Fund are transferred to your saved wallet within 30 minutes.
@@ -1124,10 +1124,10 @@ function depGo(n){
     if(i<3)document.getElementById("l"+i).className="sline"+(i<n?" done":"");
   });
 }
-function dep1Next(){if(!depNet){toast("⚠️ Select a network first");return;}document.getElementById("dep2-sub").textContent=`Network: ${depNet} · Min $50 USDT`;depGo(2);}
+function dep1Next(){if(!depNet){toast("⚠️ Select a network first");return;}document.getElementById("dep2-sub").textContent=`Network: ${depNet} · Min $10 USDT`;depGo(2);}
 async function dep2Next(){
   const raw=parseFloat(document.getElementById("depAmt").value);
-  if(!raw||raw<50){toast("⚠️ Minimum deposit is $50 USDT");return;}
+  if(!raw||raw<10){toast("⚠️ Minimum deposit is $10 USDT");return;}
 
   // Fetch platform wallet from backend (uses .env)
   const{ok:wOk,data:wData}=await apiFetch("/api/investor/platform-wallet?network="+depNet);
@@ -1162,7 +1162,7 @@ function copyAddr(){const a=document.getElementById("wallAddr").textContent;navi
 function openWdModal(){document.getElementById("wdAmtInp").value="";openModal("wdModal");}
 async function doWithdraw(){
   const amt=parseFloat(document.getElementById("wdAmtInp").value);
-  if(!amt||amt<100){toast("⚠️ Minimum withdrawal is $100");return;}
+  if(!amt||amt<50){toast("⚠️ Minimum withdrawal is $50");return;}
   if(amt>(parseFloat(USER?.balance)||0)){toast("❌ Insufficient balance");return;}
   closeModal("wdModal");
   const{ok,data}=await apiFetch("/api/investor/withdraw","POST",{amount:amt});

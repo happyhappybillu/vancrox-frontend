@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg"/>
+  <link rel="icon" type="image/png" href="./assets/logo.png"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
   <title>Trader Dashboard • VANCROX</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -482,17 +482,17 @@ a{text-decoration:none;color:inherit;}
 
       <div class="create-ad-card">
         <div style="font-size:17px;font-weight:900;margin-bottom:12px;">➕ Create New Ad</div>
-        <div class="ad-info-row">
-          ℹ️ Trade amount = your security deposit (auto-set)<br/>
-          You only set your expected return %
+        <div class="ad-info-row" id="adSecInfo">
+          ℹ️ Loading security balance...
+        </div>
+        <div class="field">
+          <label>Trade Amount (USDT) — Multiple of 10</label>
+          <input class="inp inp-big" id="adTradeAmt" type="number" placeholder="e.g. 50" min="10" step="10" oninput="validateAdAmount(this)"/>
+          <div id="adAmtError" style="font-size:12px;font-weight:700;color:var(--danger);margin-top:4px;display:none;"></div>
         </div>
         <div class="field">
           <label>Expected Return %</label>
           <input class="inp inp-big" id="adPct" type="number" placeholder="e.g. 20" min="1" max="100"/>
-        </div>
-        <div class="field">
-          <label>Trade Amount (Auto)</label>
-          <input class="inp inp-readonly" id="adAmount" readonly placeholder="= Your security deposit"/>
         </div>
         <button class="btn-prim" onclick="createAd()">Create Ad</button>
       </div>
@@ -783,92 +783,170 @@ function renderRejectedGate(){
 }
 
 function renderSubmitGate(){
+  window._vNet=""; window._vUniq=0; window._vHistB64="";
   document.getElementById("verifyGate").innerHTML = `
     <div class="gate-wrap">
       <div class="verify-card">
         <div class="gate-icon">🛡️</div>
         <div class="gate-title">Trader Verification</div>
-        <div class="gate-sub">Complete these steps to unlock your trader dashboard</div>
+        <div class="gate-sub">Complete 3 steps to unlock your trader dashboard</div>
 
-        <div class="req-item">
-          <div class="req-icon">📄</div>
-          <div class="req-body">
-            <div class="req-title">2-Year Trading History</div>
-            <div class="req-desc">Upload proof of your last 2 years of trading activity (PDF, screenshot, or statement).</div>
+        <div class="steps" style="margin-bottom:22px;">
+          <div class="sdot act" id="vs1">1</div>
+          <div class="sline" id="vl1"></div>
+          <div class="sdot" id="vs2">2</div>
+          <div class="sline" id="vl2"></div>
+          <div class="sdot" id="vs3">3</div>
+        </div>
+
+        <!-- VSTEP 1: Upload history -->
+        <div id="vstep1">
+          <div class="ibox blue" style="font-size:13px;">
+            📄 Upload 2 years of trading history (PDF / Screenshot)
           </div>
-        </div>
-
-        <div class="req-item">
-          <div class="req-icon">🔐</div>
-          <div class="req-body">
-            <div class="req-title">Security Deposit</div>
-            <div class="req-desc">Minimum $100 USDT deposit. This is your trade limit — locked until you exit the platform.</div>
+          <div class="field">
+            <label>Upload Trading History</label>
+            <label class="file-upload" id="fileUploadArea">
+              <input type="file" id="histFile" accept=".pdf,image/*" onchange="onFileChosen(this)"/>
+              <div class="file-icon">📁</div>
+              <div class="file-title">Tap to upload</div>
+              <div class="file-sub">PDF, JPG, PNG — max 10MB</div>
+              <div class="file-chosen" id="fileChosenLbl" style="display:none;"></div>
+            </label>
           </div>
+          <button class="btn-prim" onclick="vstep1Next()">Next →</button>
         </div>
 
-        <div class="sep"></div>
-
-        <div class="field">
-          <label>Upload Trading History (PDF / Image)</label>
-          <label class="file-upload" id="fileUploadArea">
-            <input type="file" id="histFile" accept=".pdf,image/*" onchange="onFileChosen(this)"/>
-            <div class="file-icon">📁</div>
-            <div class="file-title">Tap to upload</div>
-            <div class="file-sub">PDF, JPG, PNG — max 10MB</div>
-            <div class="file-chosen" id="fileChosenLbl" style="display:none;"></div>
-          </label>
+        <!-- VSTEP 2: Amount + Network -->
+        <div id="vstep2" style="display:none;">
+          <div class="ibox blue" style="font-size:13px;">
+            🔐 Security deposit = your trade limit. Min $50 USDT.
+          </div>
+          <div class="field">
+            <label>Security Deposit Amount (USDT)</label>
+            <input class="inp inp-big" id="gateSecAmt" type="number" placeholder="50" min="50"
+              oninput="document.getElementById('gateSecVal').textContent='$'+(this.value||0)+' USDT'"/>
+          </div>
+          <div class="sec-dep-card">
+            <div class="sdep-lbl">Amount</div>
+            <div class="sdep-val" id="gateSecVal">$0 USDT</div>
+            <div class="sdep-note">Min $50 · Becomes your trade limit</div>
+          </div>
+          <div style="font-size:14px;font-weight:800;color:rgba(255,255,255,.75);margin-bottom:10px;">Select Network</div>
+          <div class="net-row">
+            <button class="net-btn" id="vnb-TRC20" onclick="pickVNet('TRC20')">TRC20<div class="ns">TRON</div></button>
+            <button class="net-btn" id="vnb-ERC20" onclick="pickVNet('ERC20')">ERC20<div class="ns">Ethereum</div></button>
+            <button class="net-btn" id="vnb-BEP20" onclick="pickVNet('BEP20')">BEP20<div class="ns">BSC</div></button>
+          </div>
+          <button class="btn-prim" onclick="vstep2Next()">Generate Wallet →</button>
+          <button class="btn-ghost2" onclick="vstepGo(1)">← Back</button>
         </div>
 
-        <div class="sec-dep-card">
-          <div class="sdep-lbl">Security Deposit</div>
-          <div class="sdep-val" id="gateSecVal">$0 USDT</div>
-          <div class="sdep-note">Min $100 required · Will be your trade limit</div>
+        <!-- VSTEP 3: Wallet + I have paid -->
+        <div id="vstep3" style="display:none;">
+          <div class="uniq-box">
+            <div class="uniq-lbl">Send Exactly This Amount</div>
+            <div><span class="uniq-val" id="vUniqAmt">—</span><span class="uniq-unit">USDT</span></div>
+            <div class="uniq-note">Include decimal — it identifies your payment</div>
+          </div>
+          <div class="wall-box">
+            <div class="wall-lbl" id="vWallNetLbl">— Platform Address</div>
+            <div class="wall-addr" id="vWallAddr">Loading...</div>
+            <button class="btn-copy" onclick="copyVAddr()">📋 Copy Address</button>
+          </div>
+          <div class="ibox amber" style="font-size:13px;">
+            ⚠️ Send EXACT amount including decimal.<br/>
+            Click "I Have Paid" after sending — admin will verify.
+          </div>
+          <button class="btn-prim" onclick="submitVerification()">✅ I Have Paid — Submit</button>
+          <button class="btn-ghost2" onclick="vstepGo(2)">← Back</button>
         </div>
 
-        <div class="field">
-          <label>Security Deposit Amount (USDT)</label>
-          <input class="inp inp-big" id="gateSecAmt" type="number" placeholder="100" min="100" oninput="document.getElementById('gateSecVal').textContent='$'+(this.value||0)+' USDT'"/>
-        </div>
-
-        <div class="ibox amber">
-          ⚠️ Security deposit is locked once submitted.<br/>
-          It cannot be withdrawn while you are an active trader.
-        </div>
-
-        <button class="btn-prim" onclick="submitVerification()">Submit for Verification</button>
-        <button style="margin-top:12px;width:100%;padding:12px;border-radius:12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.20);color:var(--danger);font-size:15px;font-weight:800;" onclick="doLogout()">Logout</button>
+        <button style="margin-top:14px;width:100%;padding:12px;border-radius:12px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.20);color:var(--danger);font-size:15px;font-weight:800;" onclick="doLogout()">Logout</button>
       </div>
     </div>`;
 }
 
+/* Vstep helpers */
+function vstepGo(n){
+  [1,2,3].forEach(function(i){
+    var el=document.getElementById("vstep"+i);
+    if(el) el.style.display=(i===n?"block":"none");
+    var dot=document.getElementById("vs"+i);
+    if(dot) dot.className="sdot"+(i<n?" done":i===n?" act":"");
+    if(i<3){var ln=document.getElementById("vl"+i);if(ln)ln.className="sline"+(i<n?" done":"");}
+  });
+}
+
+function vstep1Next(){
+  var file=document.getElementById("histFile").files[0];
+  if(!file){toast("⚠️ Upload your trading history file");return;}
+  vstepGo(2);
+}
+
+function pickVNet(n){
+  window._vNet=n;
+  ["TRC20","ERC20","BEP20"].forEach(function(k){
+    var b=document.getElementById("vnb-"+k);
+    if(b) b.classList.toggle("sel",k===n);
+  });
+}
+
+async function vstep2Next(){
+  var amt=parseFloat(document.getElementById("gateSecAmt").value);
+  if(!amt||amt<50){toast("⚠️ Minimum security deposit is $50");return;}
+  if(!window._vNet){toast("⚠️ Select a network");return;}
+
+  // Fetch wallet from backend
+  var r=await apiFetch("/api/investor/platform-wallet?network="+window._vNet);
+  if(!r.ok){toast("❌ Could not load wallet address");return;}
+
+  var dec=parseFloat((Math.floor(Math.random()*98+1)/100).toFixed(2));
+  window._vUniq=+(amt+dec).toFixed(2);
+
+  document.getElementById("vUniqAmt").textContent=window._vUniq;
+  document.getElementById("vWallNetLbl").textContent=window._vNet+" Platform Address";
+  document.getElementById("vWallAddr").textContent=r.data.address||"Contact support";
+  vstepGo(3);
+}
+
+function copyVAddr(){
+  var a=document.getElementById("vWallAddr").textContent;
+  if(navigator.clipboard) navigator.clipboard.writeText(a).then(function(){toast("📋 Address copied!");}).catch(function(){toast("Copy: "+a);});
+  else toast("Copy: "+a);
+}
+
 function onFileChosen(inp){
-  const f = inp.files[0];
+  const f=inp.files[0];
   if(!f) return;
-  const lbl = document.getElementById("fileChosenLbl");
-  lbl.style.display = "block";
-  lbl.textContent = "✅ "+f.name;
+  const lbl=document.getElementById("fileChosenLbl");
+  lbl.style.display="block";
+  lbl.textContent="✅ "+f.name;
 }
 
 async function submitVerification(){
-  const amt = parseFloat(document.getElementById("gateSecAmt").value);
-  const file = document.getElementById("histFile").files[0];
-  if(!file){ toast("⚠️ Upload your trading history file"); return; }
-  if(!amt||amt<100){ toast("⚠️ Minimum security deposit is $100"); return; }
+  const amt=parseFloat(document.getElementById("gateSecAmt").value||0);
+  const file=document.getElementById("histFile").files[0];
+  if(!file){toast("⚠️ Upload your trading history file");return;}
+  if(!amt||amt<50){toast("⚠️ Minimum security deposit is $50");return;}
+  if(!window._vNet){toast("⚠️ Select a network");return;}
+  if(!window._vUniq){toast("⚠️ Go back and generate wallet address");return;}
 
   // Convert file to base64
-  const b64 = await new Promise((res)=>{
-    const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(file);
+  const b64=await new Promise(function(res){
+    const r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(file);
   });
 
   const{ok,data}=await apiFetch("/api/trader/verify","POST",{
-    historyFile: b64,
-    securityDeposit: amt
+    historyFile:     b64,
+    securityDeposit: amt,
+    network:         window._vNet,
+    uniqueAmount:    window._vUniq,
   });
 
   if(ok){
-    toast("✅ Submitted! Pending review.");
+    toast("✅ Submitted! Awaiting admin verification.");
     USER.traderVerificationStatus="PENDING";
-    USER.securityMoney=amt;
     checkVerificationGate();
   } else {
     toast("❌ "+(data?.message||"Submission failed"));
@@ -899,13 +977,17 @@ function renderOverview(){
 
 /* ── ADS ── */
 async function loadAds(){
-  // Pre-fill auto amount
-  document.getElementById("adAmount").value = USER?.securityMoney
-    ? "$"+parseFloat(USER.securityMoney).toFixed(2)+" USDT" : "= Your security deposit";
-
   const{ok,data}=await apiFetch("/api/trader/ads");
   ADS = ok&&data?.ads ? data.ads : [];
   renderAds();
+  // Update security info bar
+  var used=ADS.reduce(function(s,a){return s+(a.tradeAmount||0);},0);
+  var sec=parseFloat(USER?.securityMoney||0);
+  var remaining=sec-used;
+  var infoEl=document.getElementById("adSecInfo");
+  if(infoEl){
+    infoEl.innerHTML="💰 Security: <b>$"+sec.toFixed(0)+"</b> &nbsp;|&nbsp; Used: <b>$"+used.toFixed(0)+"</b> &nbsp;|&nbsp; Remaining: <b style='color:"+(remaining<=0?"var(--danger)":"var(--success)")+"'>$"+remaining.toFixed(0)+"</b>"+(remaining<=0?" &nbsp;<span style='color:var(--danger);font-weight:900;'>⚠️ Deposit more to create ads</span>":"");
+  }
 }
 
 function renderAds(){
@@ -934,12 +1016,31 @@ function renderAds(){
     </div>`).join("");
 }
 
+function validateAdAmount(inp){
+  var v=parseFloat(inp.value);
+  var errEl=document.getElementById("adAmtError");
+  if(!v){errEl.style.display="none";return;}
+  if(v%10!==0){errEl.style.display="block";errEl.textContent="Must be multiple of 10 (10,20,30...)";return;}
+  var used=0;
+  ADS.forEach(function(ad){used+=(ad.tradeAmount||0);});
+  var remaining=(USER?.securityMoney||0)-used;
+  if(v>remaining){errEl.style.display="block";errEl.textContent="Exceeds remaining security ($"+remaining.toFixed(0)+")";return;}
+  errEl.style.display="none";
+}
+
 async function createAd(){
-  const pct = parseFloat(document.getElementById("adPct").value);
-  if(!pct||pct<1||pct>100){ toast("⚠️ Enter a valid return % (1–100)"); return; }
-  const{ok,data}=await apiFetch("/api/trader/ads","POST",{returnPct:pct});
-  if(ok){ toast("✅ Ad created!"); await loadAds(); document.getElementById("adPct").value=""; }
-  else toast("❌ "+(data?.message||"Failed to create ad"));
+  const pct=parseFloat(document.getElementById("adPct").value);
+  const amt=parseFloat(document.getElementById("adTradeAmt").value);
+  if(!amt||amt<10){toast("⚠️ Enter trade amount (min $10)");return;}
+  if(amt%10!==0){toast("⚠️ Amount must be multiple of 10");return;}
+  if(!pct||pct<1||pct>100){toast("⚠️ Enter valid return % (1–100)");return;}
+  const{ok,data}=await apiFetch("/api/trader/ads","POST",{returnPct:pct,tradeAmount:amt});
+  if(ok){
+    toast("✅ Ad created!");
+    await loadAds();
+    document.getElementById("adPct").value="";
+    document.getElementById("adTradeAmt").value="";
+  } else toast("❌ "+(data?.message||"Failed to create ad"));
 }
 
 async function toggleAd(id, active){

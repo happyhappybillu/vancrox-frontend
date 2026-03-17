@@ -1,19 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
 <url>
 <loc>https://vancrox.tech/</loc>
-<lastmod>2026-03-15</lastmod>
+<lastmod>2026-03-17</lastmod>
+<changefreq>daily</changefreq>
 <priority>1.00</priority>
 </url>
 
 <url>
+<loc>https://vancrox.tech/about.html</loc>
+<changefreq>monthly</changefreq>
+<priority>0.90</priority>
+</url>
+
+<url>
 <loc>https://vancrox.tech/login.html</loc>
+<changefreq>monthly</changefreq>
 <priority>0.80</priority>
 </url>
 
 <url>
 <loc>https://vancrox.tech/register.html</loc>
+<changefreq>monthly</changefreq>
 <priority>0.80</priority>
 </url>
 

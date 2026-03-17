@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg"/>
+  <link rel="icon" type="image/png" href="./assets/logo.png"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>VANCROX • Control Panel</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -870,53 +870,124 @@ function renderApprovals(){
   let rows=PEND.filter(p=>p.status==="pending"||p.status==="PENDING");
   if(f!=="ALL") rows=rows.filter(r=>(r.type||"").toUpperCase()===f);
   if(!rows.length){tb.innerHTML=`<tr class="empty-row"><td colspan="7">✅ No pending approvals</td></tr>`;return;}
-  const typeTag=(t)=>{
-    t=(t||"").toUpperCase();
-    if(t==="TRADER_VERIFICATION") return`<span class="tag verif">🛡 Verification</span>`;
-    if(t==="DEPOSIT")             return`<span class="tag deposit">💰 Deposit</span>`;
-    return                               `<span class="tag withdrawal">↗ Withdrawal</span>`;
-  };
+
   tb.innerHTML=rows.map(a=>{
-    const isV=(a.type||"").toUpperCase()==="TRADER_VERIFICATION";
-    const info=isV?`Sec: $${parseFloat(a.securityDeposit||0).toFixed(2)}`:`$${parseFloat(a.amount||0).toFixed(2)}`;
-    const role=a.role==="trader"
+    const t=(a.type||"").toUpperCase();
+    const isV = t==="TRADER_VERIFICATION";
+    const isW = t==="WITHDRAWAL";
+    const isD = t==="DEPOSIT";
+
+    // Type tag
+    const typeTag = isV
+      ? `<span class="tag verif">🛡 Verification</span>`
+      : isW
+      ? `<span class="tag withdrawal">↗ Withdrawal</span>`
+      : `<span class="tag deposit">💰 Deposit</span>`;
+
+    // Amount / info column
+    let infoHtml = "";
+    if(isV){
+      infoHtml=`<div style="font-weight:900;">$${parseFloat(a.securityDeposit||0).toFixed(2)}</div>
+        <div style="font-size:11px;color:var(--muted2);">Net: ${xe(a.depositNetwork||"—")} · Uniq: ${a.uniqueAmount||"—"}</div>`;
+    } else if(isW){
+      infoHtml=`<div style="font-weight:900;color:var(--warning);">$${parseFloat(a.amount||0).toFixed(2)}</div>
+        <div style="font-size:11px;color:var(--muted2);font-family:monospace;">${xe((a.walletAddress||"—").substring(0,22)+"…")}</div>`;
+    } else {
+      infoHtml=`<div style="font-weight:900;color:var(--success);">$${parseFloat(a.amount||0).toFixed(2)}</div>
+        <div style="font-size:11px;color:var(--cyan);">${xe(a.depositNetwork||"—")} · ${a.uniqueAmount||"—"}</div>`;
+    }
+
+    const role=a.userRole==="trader"||a.role==="trader"
       ?`<span style="color:var(--purple);font-weight:800;">Trader</span>`
       :`<span style="color:var(--primary);font-weight:800;">Investor</span>`;
+
+    const uid=(a.userRole==="trader"||a.role==="trader")
+      ?`TID${a.tid||a.userId||"—"}`
+      :`UID${a.uid||a.userId||"—"}`;
+
+    // Action buttons
+    let btns=`<button class="btn-xs bx-view" onclick="viewPend('${a._id}')">View</button>`;
+    if(isV){
+      // Verification: approve=doc ok + deposit credited, reject=back to resubmit
+      btns+=`<button class="btn-xs bx-approve" onclick="approvePend('${a._id}','${xe(a.userName||"")}','TRADER_VERIFICATION')">✅ Approve All</button>
+             <button class="btn-xs bx-reject"  onclick="rejectPend('${a._id}','${xe(a.userName||"")}')">❌ Reject</button>`;
+    } else if(isW){
+      btns+=`<button class="btn-xs bx-approve" onclick="approvePend('${a._id}','${xe(a.userName||"")}','WITHDRAWAL')">✅ Pay Out</button>
+             <button class="btn-xs bx-reject"  onclick="rejectPend('${a._id}','${xe(a.userName||"")}')">❌ Refund</button>`;
+    } else {
+      btns+=`<button class="btn-xs bx-approve" onclick="approvePend('${a._id}','${xe(a.userName||"")}','DEPOSIT')">✅ Confirm</button>
+             <button class="btn-xs bx-reject"  onclick="rejectPend('${a._id}','${xe(a.userName||"")}')">❌ Reject</button>`;
+    }
+
     return`<tr class="pend-highlight">
       <td><b style="color:#fff;">${xe(a.userName||a.name||"—")}</b></td>
-      <td style="font-size:12px;color:var(--muted2);font-weight:800;">${a.role==="trader"?"TID":"UID"}${a.userId||a.uid||a.tid||"—"}</td>
+      <td style="font-size:12px;color:var(--muted2);font-weight:800;">${uid}</td>
       <td>${role}</td>
-      <td>${typeTag(a.type)}</td>
-      <td><b>${xe(info)}</b></td>
-      <td style="color:var(--muted2);font-size:13px;">${fd(a.createdAt||a.date)}</td>
-      <td><div class="btn-actions">
-        <button class="btn-xs bx-view"    onclick="viewPend('${a._id}')">View</button>
-        <button class="btn-xs bx-approve" onclick="approvePend('${a._id}','${xe(a.userName||a.name||'')}')">Approve</button>
-        <button class="btn-xs bx-reject"  onclick="rejectPend('${a._id}','${xe(a.userName||a.name||'')}')">Reject</button>
-      </div></td>
+      <td>${typeTag}</td>
+      <td>${infoHtml}</td>
+      <td style="color:var(--muted2);font-size:12px;">${fd(a.createdAt||a.date)}</td>
+      <td><div class="btn-actions">${btns}</div></td>
     </tr>`;
   }).join("");
 }
 function viewPend(id){
   const a=PEND.find(x=>x._id===id);if(!a)return;
-  const isV=(a.type||"").toUpperCase()==="TRADER_VERIFICATION";
-  document.getElementById("detailTitle").textContent="Approval Details";
-  document.getElementById("detailBody").innerHTML=
-    dr("User",xe(a.userName||a.name||"—"))+dr("Role",a.role||"—")+
-    dr("Type",(a.type||"—").replace(/_/g," "))+
-    (isV?dr("Security Deposit","$"+parseFloat(a.securityDeposit||0).toFixed(2)):dr("Amount","$"+parseFloat(a.amount||0).toFixed(2)))+
-    (a.network?dr("Network",a.network):"")+
-    (a.uniqueAmount?dr("Unique Amount","$"+a.uniqueAmount):"")+
-    dr("Date",fd(a.createdAt||a.date))+
-    (a.walletAddress?dr("To Wallet",xe(a.walletAddress)):"")+
-    (isV&&a.historyFile?`<div style="margin-top:12px;"><a href="${a.historyFile}" target="_blank" style="color:var(--primary);font-weight:800;font-size:13px;">📄 View History File</a></div>`:"");
+  const t=(a.type||"").toUpperCase();
+  const isV=t==="TRADER_VERIFICATION";
+  const isW=t==="WITHDRAWAL";
+  document.getElementById("detailTitle").textContent=
+    isV?"Trader Verification":isW?"Withdrawal Request":"Deposit Request";
+
+  let body="";
+  body+=dr("User",xe(a.userName||a.name||"—"));
+  body+=dr("Role",(a.userRole||a.role||"—"));
+  body+=dr("ID",(a.userRole==="trader"||a.role==="trader")?"TID"+(a.tid||"—"):"UID"+(a.uid||"—"));
+  body+=dr("Date",fd(a.createdAt||a.date));
+
+  if(isV){
+    body+=`<div style="font-size:12px;font-weight:800;color:var(--muted2);letter-spacing:.6px;text-transform:uppercase;margin:14px 0 8px;">Security Deposit</div>`;
+    body+=dr("Amount","$"+parseFloat(a.securityDeposit||0).toFixed(2)+" USDT");
+    body+=dr("Network",xe(a.depositNetwork||"—"));
+    body+=dr("Unique Amount",a.uniqueAmount?a.uniqueAmount+" USDT":"—");
+    if(a.historyFile){
+      body+=`<div style="margin-top:12px;padding:12px 14px;background:var(--bg);border-radius:9px;">
+        <a href="${xe(a.historyFile)}" target="_blank" style="color:var(--primary);font-weight:800;font-size:14px;">📄 View Trading History File ↗</a>
+      </div>`;
+    }
+    body+=`<div class="alert info" style="margin-top:12px;font-size:13px;">
+      ℹ️ <b>Approve</b> = Document accepted + Security deposit credited to trader account.<br/>
+      <b>Reject</b> = Trader must re-submit with valid documents.
+    </div>`;
+  } else if(isW){
+    body+=dr("Amount","$"+parseFloat(a.amount||0).toFixed(2)+" USDT");
+    body+=dr("To Wallet",`<span style="font-family:monospace;font-size:12px;">${xe(a.walletAddress||"—")}</span>`);
+    body+=`<div class="alert warn" style="margin-top:12px;font-size:13px;">
+      ⚠️ <b>Approve</b> = Manually send $${parseFloat(a.amount||0).toFixed(2)} USDT to the wallet above, then click Approve.<br/>
+      <b>Reject</b> = Amount will be refunded to user balance.
+    </div>`;
+  } else {
+    body+=dr("Amount","$"+parseFloat(a.amount||0).toFixed(2)+" USDT");
+    body+=dr("Network",xe(a.depositNetwork||a.network||"—"));
+    body+=dr("Unique Amount",a.uniqueAmount?a.uniqueAmount+" USDT":"—");
+    body+=`<div class="alert info" style="margin-top:12px;font-size:13px;">
+      ℹ️ Deposit is auto-verified via blockchain. Manual approval only if needed.
+    </div>`;
+  }
+
+  document.getElementById("detailBody").innerHTML=body;
   document.getElementById("detailActs").innerHTML=`
-    <button class="btn-xs bx-approve" onclick="closeMod('detailMod');approvePend('${a._id}','${xe(a.userName||'')}')">✅ Approve</button>
-    <button class="btn-xs bx-reject"  onclick="closeMod('detailMod');rejectPend('${a._id}','${xe(a.userName||'')}')">❌ Reject</button>`;
+    <button class="btn-xs bx-approve" style="padding:10px 20px;font-size:14px;" onclick="closeMod('detailMod');approvePend('${a._id}','${xe(a.userName||"")}','${t}')">✅ Approve</button>
+    <button class="btn-xs bx-reject"  style="padding:10px 20px;font-size:14px;" onclick="closeMod('detailMod');rejectPend('${a._id}','${xe(a.userName||"")}')">❌ Reject</button>`;
   openMod("detailMod");
 }
-async function approvePend(id,name){
-  confirm2("✅","Approve Request","Approve this request for <b>"+name+"</b>?",async()=>{
+async function approvePend(id,name,type){
+  const t=(type||"").toUpperCase();
+  const msg=t==="WITHDRAWAL"
+    ?"Confirm you have sent the funds to user's wallet?"
+    :t==="TRADER_VERIFICATION"
+    ?"Approve verification + credit security deposit for <b>"+name+"</b>?"
+    :"Confirm deposit received for <b>"+name+"</b>?";
+  confirm2("✅","Approve",msg,async()=>{
     const{ok,data}=await api("/api/admin/approvals/"+id+"/approve","POST",{});
     if(ok){toast("✅ Approved!");await loadApprovals();await loadInvestors();await loadTraders();renderStats();}
     else toast("❌ "+(data?.message||"Failed"));

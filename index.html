@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <link rel="icon" type="image/png" sizes="192x192" herf="/favicon.png"/>
-
+  <link rel="icon" type="image/png" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/favicon.png">
   <link rel="icon" type="image/svg+xml" href="/assets/logo.png"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>VANCROX — Professional Trading Platform</title>
@@ -17,7 +17,15 @@
  "url": "https://vancrox.tech",
  "logo": "https://vancrox.tech/assets/logo.png",
  "description": "Vancrox is a professional trading platform connecting investors with experienced traders for crypto, forex, futures and options trading with transparent settlement and capital protection logic.",
- "sameAs": []
+ "sameAs": [
+"https://co.linkedin.com/in/vancrox-tech",
+"https://medium.com/@happyhappybilluu"
+],
+"contactPoint": [{
+"@type": "ContactPoint",
+"contactType": "customer support",
+"email": "support@vancrox.tech"
+}]
 }
 </script>
 
@@ -36,11 +44,12 @@
   <header class="nav">
     <div class="nav-left">
       <div class="brand">
-        <img src=" ./assets/logo.png" class="brand-logo" alt="VANCROX Logo">
+        <img src="/assets/logo.png" class="brand-logo" alt="VANCROX Logo">
         <span class="brand-name">VANCROX</span>
       </div>
     </div>
     <nav class="nav-links">
+     <a href="about.html">About</a>
       <a href="#how-it-works">How It Works</a>
       <a href="#markets">Markets</a>
       <a href="#security">Security</a>
@@ -80,6 +89,7 @@
           <div class="badge-shine">
             <span class="badge-title">100% Capital Refund Guarantee</span>
             <span class="badge-sub">If the trader makes a loss</span>
+           <span class="badge-note">Terms & Conditions Apply</span>
           </div>
           <p class="hero-mini">"Live charts, real-time updates, and a transparent trading view — all in one place."</p>
           <div class="hero-mini-tags">
@@ -156,21 +166,30 @@
                 <span class="ticker-name">XAUUSD</span>
                 <span class="down">▼ 0.41%</span>
               </div>
-            </div>
-            <div class="fake-chart">
-              <div class="bar b1"></div>
-              <div class="bar b2"></div>
-              <div class="bar b3"></div>
-              <div class="bar b4"></div>
-              <div class="bar b5"></div>
-              <div class="bar b6"></div>
-              <div class="bar b7"></div>
-              <div class="bar b8"></div>
-              <div class="bar b9"></div>
-              <div class="bar b10"></div>
-            </div>
-          </div>
+            
+<div class="tradingview-widget-container">
+  <div id="tradingview_chart"></div>
+</div>
 
+<script src="https://s3.tradingview.com/tv.js"></script>
+
+<script>
+new TradingView.widget({
+  "width": "100%",
+  "height": 260,
+  "symbol": "BINANCE:BTCUSDT",
+  "interval": "30",
+  "timezone": "Etc/UTC",
+  "theme": "dark",
+  "style": "1",
+  "locale": "en",
+  "toolbar_bg": "#0f172a",
+  "enable_publishing": false,
+  "hide_top_toolbar": true,
+  "hide_legend": true,
+  "container_id": "tradingview_chart"
+});
+</script>
           <!-- INFO PILLS -->
           <div class="glass-info">
             <div class="info-pill">📶 Real-time Signals</div>
@@ -303,6 +322,17 @@
           <span>✅ Verified Platform</span>
           <span>🛡 End-to-End Encrypted</span>
         </div>
+       <p style="margin-top:12px;">
+Support:
+<a href="mailto:support@vancrox.tech">support@vancrox.tech</a>
+</p>
+       <p>
+<a href="https://co.linkedin.com/in/vancrox-tech" target="_blank">LinkedIn</a>
+</p>
+
+<p>
+<a href="https://medium.com/@happyhappybilluu" target="_blank">Medium</a>
+</p>
       </div>
     </div>
   </footer>
