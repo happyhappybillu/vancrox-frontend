@@ -1022,11 +1022,11 @@ function renderTraders(){
       </div>
       <div class="tc-pct-col">
         <div class="tc-pct">${ad.returnPct}<sup>%</sup></div>
-        <div class="tc-limit">${fmtAmt(ad.tradeAmount)} amount</div>
+        <div class="tc-amount">${fmtAmt(ad.tradeAmount)} amount</div>
       </div>
       <div class="tc-hire-col">
         <button class="btn-hire" onclick="openHire('${t._id}','${ad._id}','${xe(t.name)}',${ad.tradeAmount})">Hire</button>
-        <div class="tc-fee">(1USDT fee)</div>
+        <div class="tc-fee">(0.01USDT fee)</div>
       </div>
     </div>`).join("");
 }
