@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg"/>
+  <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
   <title>Dashboard • VANCROX</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -245,7 +245,7 @@ a{text-decoration:none;color:inherit;}
   text-shadow:0 0 18px rgba(34,216,138,0.45);
 }
 .tc-pct sup{font-size:20px;font-weight:700;vertical-align:top;margin-top:8px;display:inline-block;}
-.tc-limit{font-size:12px;font-weight:700;color:rgba(255,255,255,0.45);margin-top:4px;}
+.tc-amount{font-size:12px;font-weight:700;color:rgba(255,255,255,0.45);margin-top:4px;}
 .tc-hire-col{text-align:center;flex-shrink:0;}
 .btn-hire{
   display:block;padding:13px 22px;border-radius:13px;
@@ -630,7 +630,7 @@ a{text-decoration:none;color:inherit;}
       <div class="info-line">
         Live charts, real-time updates, and a transparent trading view – all in one place.
       </div>
-      <div class="choose-trader-label">Choose your own Trader</div>
+      <div class="choose-trader-label">Choose your Elite Trader</div>
       <div class="top-traders-label">Top Traders</div>
       <div id="tradersEl">
         <div class="loader"><div class="spin"></div><div class="spin-lbl">Loading traders…</div></div>
@@ -810,7 +810,7 @@ a{text-decoration:none;color:inherit;}
     <div class="modal-title">Confirm Hire</div>
     <div class="modal-sub">Hire <strong id="hireName">—</strong>?</div>
     <div class="modal-amt" id="hireAmt">$0</div>
-    <div class="modal-note">0.1 processing fee</div>
+    <div class="modal-note">0.1 USDT processing fee</div>
     <div class="modal-btns">
       <button class="mbtn-cancel" onclick="closeModal('hireModal')">Cancel</button>
       <button class="mbtn-ok" onclick="doHire()">Hire Now</button>
@@ -1022,7 +1022,7 @@ function renderTraders(){
       </div>
       <div class="tc-pct-col">
         <div class="tc-pct">${ad.returnPct}<sup>%</sup></div>
-        <div class="tc-limit">${fmtAmt(ad.tradeAmount)} limit</div>
+        <div class="tc-limit">${fmtAmt(ad.tradeAmount)} amount</div>
       </div>
       <div class="tc-hire-col">
         <button class="btn-hire" onclick="openHire('${t._id}','${ad._id}','${xe(t.name)}',${ad.tradeAmount})">Hire</button>

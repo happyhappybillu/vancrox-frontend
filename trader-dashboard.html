@@ -88,7 +88,7 @@ a{text-decoration:none;color:inherit;}
 .gate-title{font-size:28px;font-weight:900;text-align:center;margin-bottom:8px;}
 .gate-sub{font-size:15px;font-weight:600;color:rgba(255,255,255,0.55);text-align:center;margin-bottom:28px;line-height:1.6;max-width:320px;}
 
-/* PENDING of SCREEN */
+/* PENDING SCREEN */
 .pending-card{
   width:100%;max-width:380px;
   background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.30);
@@ -393,6 +393,20 @@ a{text-decoration:none;color:inherit;}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 
 .sep{height:1px;background:rgba(255,255,255,.07);margin:16px 0;}
+
+/* Network selector */
+.net-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;}
+.net-btn{
+  padding:14px 0;border-radius:14px;text-align:center;
+  background:rgba(8,16,52,.70);border:2px solid rgba(255,255,255,0.09);
+  color:rgba(255,255,255,.68);font-size:14px;font-weight:900;
+  transition:.2s;cursor:pointer;
+}
+.net-btn .ns{font-size:11px;font-weight:700;color:rgba(0,170,255,.65);margin-top:3px;}
+.net-btn.sel{
+  border-color:rgba(0,170,255,.72);background:rgba(0,100,255,.14);
+  color:#fff;box-shadow:0 0 18px rgba(0,170,255,.22);
+}
 </style>
 </head>
 <body>
