@@ -490,6 +490,7 @@ input,select,textarea{font-family:'Rajdhani',sans-serif;outline:none;}
     <div class="nav-section">System</div>
     <button class="nav-btn" onclick="go('addresses')">💳 &nbsp;Wallet Addresses</button>
     <button class="nav-btn" onclick="go('reports')">📋 &nbsp;Reports</button>
+    <button class="nav-btn" onclick="go('referrals')">🎁 &nbsp;Referrals</button>
     <button class="nav-btn danger-btn" onclick="doLogout()">🚪 &nbsp;Logout</button>
 
   </nav>
@@ -628,6 +629,34 @@ input,select,textarea{font-family:'Rajdhani',sans-serif;outline:none;}
         <button class="rep-tab" onclick="switchReport('withdrawals',this)">↗ Withdrawals</button>
       </div>
       <div id="reportEl"><div style="text-align:center;padding:40px;"><div class="spin"></div></div></div>
+    </div>
+
+    <!-- REFERRALS VIEW -->
+    <div class="view" id="view-referrals">
+      <div class="page-hd"><div class="page-title">🎁 Referral Stats</div></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:22px;">
+        <div class="stat-card"><div class="stat-val" id="refTotalUsers">—</div><div class="stat-lbl">Total Referrers</div></div>
+        <div class="stat-card"><div class="stat-val" id="refTotalRefs">—</div><div class="stat-lbl">Total Referred</div></div>
+        <div class="stat-card"><div class="stat-val" id="refTotalEarned">—</div><div class="stat-lbl">Total Bonuses Paid</div></div>
+      </div>
+      <div class="card" style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Investor</th>
+              <th>UID</th>
+              <th>Refer Code</th>
+              <th>Total Referred</th>
+              <th>Deposited</th>
+              <th>Total Earned</th>
+              <th>Pending Balance</th>
+            </tr>
+          </thead>
+          <tbody id="ref-tb">
+            <tr class="empty-row"><td colspan="7">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
   </main>
@@ -954,6 +983,12 @@ function viewPend(id){
         <a href="${xe(a.historyFile)}" target="_blank" style="color:var(--primary);font-weight:800;font-size:14px;">📄 View Trading History File ↗</a>
       </div>`;
     }
+    if(a.paymentScreenshot){
+      body+=`<div style="margin-top:12px;">
+        <div style="font-size:12px;font-weight:800;color:var(--muted2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.6px;">💳 Payment Screenshot</div>
+        <img src="${xe(a.paymentScreenshot)}" style="width:100%;border-radius:12px;border:1px solid rgba(0,170,255,.25);max-height:280px;object-fit:contain;background:#000;" onclick="this.style.maxHeight=this.style.maxHeight?'':'280px'" title="Click to toggle size"/>
+      </div>`;
+    }
     body+=`<div class="alert info" style="margin-top:12px;font-size:13px;">
       ℹ️ <b>Approve</b> = Document accepted + Security deposit credited to trader account.<br/>
       <b>Reject</b> = Trader must re-submit with valid documents.
@@ -1141,6 +1176,32 @@ async function saveAddresses(){
 }
 
 /* ════════ REPORTS ════════ */
+async function loadReferrals(){
+  const{ok,data}=await api("/api/refer/admin/stats");
+  if(!ok){document.getElementById("ref-tb").innerHTML='<tr class="empty-row"><td colspan="7">Failed to load</td></tr>';return;}
+  const stats=data.stats||[];
+  // Summary
+  const totalRefs=stats.reduce(function(s,r){return s+(r.totalReferred||0);},0);
+  const totalEarned=stats.reduce(function(s,r){return s+(r.referEarned||0);},0);
+  document.getElementById("refTotalUsers").textContent=stats.length;
+  document.getElementById("refTotalRefs").textContent=totalRefs;
+  document.getElementById("refTotalEarned").textContent="$"+totalEarned.toFixed(2);
+  // Table
+  const tb=document.getElementById("ref-tb");
+  if(!stats.length){tb.innerHTML='<tr class="empty-row"><td colspan="7">No referral data yet</td></tr>';return;}
+  tb.innerHTML=stats.map(function(r){
+    return`<tr>
+      <td><b style="color:#fff;">${xe(r.name||"—")}</b></td>
+      <td style="color:var(--muted2);font-size:13px;">UID${r.uid||"—"}</td>
+      <td style="font-family:monospace;font-size:12px;color:var(--cyan);">${xe(r.referCode||"—")}</td>
+      <td style="font-weight:900;text-align:center;">${r.totalReferred||0}</td>
+      <td style="font-weight:900;text-align:center;color:var(--success);">${r.depositedCount||0}</td>
+      <td style="font-weight:900;color:var(--success);">$${parseFloat(r.referEarned||0).toFixed(2)}</td>
+      <td style="font-weight:900;color:var(--warning);">$${parseFloat(r.referBalance||0).toFixed(2)}</td>
+    </tr>`;
+  }).join("");
+}
+
 async function loadReports(type){
   const el=document.getElementById("reportEl");
   el.innerHTML=`<div style="text-align:center;padding:40px;"><div class="spin"></div></div>`;
@@ -1196,6 +1257,7 @@ function go(v){
   });
   document.getElementById("mainContent").scrollTop=0;
   closeSidebar();
+  if(v==="referrals") loadReferrals();
 }
 
 /* ════════ MODALS ════════ */

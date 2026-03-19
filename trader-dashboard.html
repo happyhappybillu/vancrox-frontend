@@ -396,6 +396,86 @@ a{text-decoration:none;color:inherit;}
 
 /* Network selector */
 .net-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;}
+
+/* Unique amount box */
+.uniq-box{
+  text-align:center;padding:20px 16px;
+  background:linear-gradient(135deg,rgba(0,0,0,.50),rgba(4,10,30,.80));
+  border:1px solid rgba(245,158,11,.35);
+  border-radius:18px;margin-bottom:14px;
+  position:relative;overflow:hidden;
+}
+.uniq-box::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(circle at 50% 0%,rgba(245,158,11,.10),transparent 65%);
+  pointer-events:none;
+}
+.uniq-lbl{
+  font-size:11px;font-weight:900;
+  color:rgba(255,255,255,.45);
+  letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px;
+}
+.uniq-val{
+  font-size:46px;font-weight:900;
+  color:var(--warn);letter-spacing:-1px;
+  text-shadow:0 0 24px rgba(245,158,11,.45);
+}
+.uniq-unit{font-size:18px;font-weight:900;color:rgba(245,158,11,.65);margin-left:4px;}
+.uniq-note{font-size:12px;font-weight:700;color:rgba(255,255,255,.42);margin-top:8px;}
+
+/* Wallet address box */
+.wall-box{
+  background:rgba(0,0,0,.45);
+  border:1px solid rgba(0,170,255,.25);
+  border-radius:16px;padding:16px;margin-bottom:14px;
+  position:relative;
+}
+.wall-lbl{
+  font-size:11px;font-weight:900;
+  color:var(--primary);
+  letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;
+  display:flex;align-items:center;gap:6px;
+}
+.wall-lbl::before{
+  content:'';width:8px;height:8px;border-radius:50%;
+  background:var(--primary);
+  box-shadow:0 0 8px rgba(0,170,255,.8);
+  animation:wallDot 1.5s ease-in-out infinite;flex-shrink:0;
+}
+@keyframes wallDot{0%,100%{opacity:1}50%{opacity:.3}}
+.wall-addr{
+  font-size:13px;font-weight:700;
+  word-break:break-all;line-height:1.8;
+  color:#fff;font-family:monospace;
+  background:rgba(0,0,0,.35);
+  border-radius:10px;padding:12px 14px;
+  border:1px solid rgba(255,255,255,.07);
+  letter-spacing:.3px;
+  margin-bottom:10px;
+}
+.btn-copy{
+  width:100%;padding:11px;border-radius:12px;
+  background:rgba(0,140,255,.12);
+  border:1px solid rgba(0,140,255,.30);
+  color:var(--primary);font-size:14px;font-weight:900;
+  transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-copy:hover{background:rgba(0,140,255,.22);transform:translateY(-1px);}
+
+/* Payment screenshot upload */
+.ss-upload{
+  display:flex;flex-direction:column;align-items:center;
+  padding:18px 14px;border-radius:14px;
+  border:2px dashed rgba(0,170,255,.30);
+  background:rgba(0,0,0,.25);
+  cursor:pointer;transition:.2s;width:100%;
+}
+.ss-upload:hover{border-color:rgba(0,170,255,.60);background:rgba(0,100,255,.06);}
+.ss-upload input[type=file]{display:none;}
+.ss-icon{font-size:28px;margin-bottom:6px;}
+.ss-title{font-size:14px;font-weight:900;color:rgba(255,255,255,.80);}
+.ss-sub{font-size:12px;font-weight:700;color:rgba(255,255,255,.38);margin-top:3px;}
+.ss-chosen{font-size:13px;font-weight:800;color:var(--success);margin-top:6px;}
 .net-btn{
   padding:14px 0;border-radius:14px;text-align:center;
   background:rgba(8,16,52,.70);border:2px solid rgba(255,255,255,0.09);
@@ -858,21 +938,49 @@ function renderSubmitGate(){
 
         <!-- VSTEP 3: Wallet + I have paid -->
         <div id="vstep3" style="display:none;">
+          <!-- Amount box -->
           <div class="uniq-box">
-            <div class="uniq-lbl">Send Exactly This Amount</div>
-            <div><span class="uniq-val" id="vUniqAmt">—</span><span class="uniq-unit">USDT</span></div>
-            <div class="uniq-note">Include decimal — it identifies your payment</div>
+            <div class="uniq-lbl">📤 Send Exactly This Amount</div>
+            <div>
+              <span class="uniq-val" id="vUniqAmt">—</span>
+              <span class="uniq-unit">USDT</span>
+            </div>
+            <div class="uniq-note">⚠️ Include the decimal — it uniquely identifies your payment</div>
           </div>
+
+          <!-- Wallet address box -->
           <div class="wall-box">
-            <div class="wall-lbl" id="vWallNetLbl">— Platform Address</div>
+            <div class="wall-lbl" id="vWallNetLbl">Platform Address</div>
             <div class="wall-addr" id="vWallAddr">Loading...</div>
-            <button class="btn-copy" onclick="copyVAddr()">📋 Copy Address</button>
+            <button class="btn-copy" onclick="copyVAddr()">
+              📋 Copy Address
+            </button>
           </div>
-          <div class="ibox amber" style="font-size:13px;">
-            ⚠️ Send EXACT amount including decimal.<br/>
-            Click "I Have Paid" after sending — admin will verify.
+
+          <!-- Steps reminder -->
+          <div class="ibox green" style="font-size:13px;line-height:1.9;">
+            ✅ Send exact amount including decimal<br/>
+            ✅ Screenshot your transaction for reference<br/>
+            ✅ Click "I Have Paid" — admin will verify manually
           </div>
-          <button class="btn-prim" onclick="submitVerification()">✅ I Have Paid — Submit</button>
+
+          <!-- Payment Screenshot Upload -->
+          <div class="field" style="margin-top:10px;">
+            <label style="font-size:13px;font-weight:900;color:rgba(255,255,255,.75);margin-bottom:8px;display:block;">
+              📸 Payment Screenshot (Optional but recommended)
+            </label>
+            <label class="ss-upload" id="ssUploadArea">
+              <input type="file" id="payScreenshot" accept="image/*" onchange="onSSChosen(this)"/>
+              <div class="ss-icon">📷</div>
+              <div class="ss-title">Tap to upload screenshot</div>
+              <div class="ss-sub">JPG, PNG — proof of payment</div>
+              <div class="ss-chosen" id="ssChosenLbl" style="display:none;"></div>
+            </label>
+          </div>
+
+          <button class="btn-prim" style="margin-top:8px;font-size:16px;" onclick="submitVerification()">
+            ✅ I Have Paid — Submit
+          </button>
           <button class="btn-ghost2" onclick="vstepGo(2)">← Back</button>
         </div>
 
@@ -930,6 +1038,13 @@ function copyVAddr(){
   else toast("Copy: "+a);
 }
 
+function onSSChosen(inp){
+  var f=inp.files[0];if(!f)return;
+  var lbl=document.getElementById("ssChosenLbl");
+  lbl.style.display="block";
+  lbl.textContent="✅ "+f.name;
+}
+
 function onFileChosen(inp){
   const f=inp.files[0];
   if(!f) return;
@@ -946,16 +1061,26 @@ async function submitVerification(){
   if(!window._vNet){toast("⚠️ Select a network");return;}
   if(!window._vUniq){toast("⚠️ Go back and generate wallet address");return;}
 
-  // Convert file to base64
+  // Convert history file to base64
   const b64=await new Promise(function(res){
     const r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(file);
   });
 
+  // Payment screenshot (optional)
+  var ssB64="";
+  var ssEl=document.getElementById("payScreenshot");
+  if(ssEl && ssEl.files[0]){
+    ssB64=await new Promise(function(res){
+      var rr=new FileReader();rr.onload=function(){res(rr.result);};rr.readAsDataURL(ssEl.files[0]);
+    });
+  }
+
   const{ok,data}=await apiFetch("/api/trader/verify","POST",{
-    historyFile:     b64,
-    securityDeposit: amt,
-    network:         window._vNet,
-    uniqueAmount:    window._vUniq,
+    historyFile:       b64,
+    securityDeposit:   amt,
+    network:           window._vNet,
+    uniqueAmount:      window._vUniq,
+    paymentScreenshot: ssB64||null,
   });
 
   if(ok){
