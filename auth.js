@@ -138,6 +138,9 @@ async function handleRegister(e) {
     return showMsg("err", "Fill all required details");
   }
 
+  /* Check for refer code in URL */
+  const refCode = new URLSearchParams(window.location.search).get("ref") || "";
+
   const endpoint =
     role === "trader"
       ? "/api/auth/register/trader"
@@ -148,6 +151,7 @@ async function handleRegister(e) {
     email,
     mobile,
     password,
+    refCode: refCode || undefined,
   });
 
   if (!ok || !data?.token) {
