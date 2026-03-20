@@ -857,7 +857,7 @@ a{text-decoration:none;color:inherit;}
     <div class="modal-title">Confirm Hire</div>
     <div class="modal-sub">Hire <strong id="hireName">—</strong>?</div>
     <div class="modal-amt" id="hireAmt">$0</div>
-    <div class="modal-note">fee 0.01</div>
+    <div class="modal-note">deducted instantly from your balance</div>
     <div class="modal-btns">
       <button class="mbtn-cancel" onclick="closeModal('hireModal')">Cancel</button>
       <button class="mbtn-ok" onclick="doHire()">Hire Now</button>
@@ -1085,11 +1085,11 @@ function renderTraders(){
       </div>
       <div class="tc-pct-col">
         <div class="tc-pct">${ad.returnPct}<sup>%</sup></div>
-        <div class="tc-limit">${fmtAmt(ad.tradeAmount)} amount</div>
+        <div class="tc-limit">${fmtAmt(ad.tradeAmount)} limit</div>
       </div>
       <div class="tc-hire-col">
         <button class="btn-hire" onclick="openHire('${t._id}','${ad._id}','${xe(t.name)}',${ad.tradeAmount})">Hire</button>
-        <div class="tc-fee">(0.01USDT fee)</div>
+        <div class="tc-fee">(1USDT fee)</div>
       </div>
     </div>`).join("");
 }

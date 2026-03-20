@@ -1332,41 +1332,37 @@ function timeLeft(ht){
   return `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
 }
 
-/* ── AUTO ACCEPT ── */
+/* ── AUTO ACCEPT (server-side) ── */
 var AUTO_ACCEPT = false;
 
-function toggleAutoAccept(val) {
-  AUTO_ACCEPT = val;
-  localStorage.setItem("vancrox_aa", val ? "1" : "0");
-  toast(val ? "⚡ Auto Accept ON — requests will be accepted automatically" : "Auto Accept OFF");
+async function toggleAutoAccept(val) {
+  var el = document.getElementById("autoAcceptToggle");
+  // Disable toggle while saving
+  if (el) el.disabled = true;
+  var r = await apiFetch("/api/trader/auto-accept", "POST", { enabled: val });
+  if (el) el.disabled = false;
+  if (r.ok) {
+    AUTO_ACCEPT = val;
+    toast(val
+      ? "⚡ Auto Accept ON — trades will be accepted instantly, even when offline!"
+      : "Auto Accept OFF");
+  } else {
+    // Revert toggle
+    if (el) el.checked = !val;
+    toast("❌ Failed to update auto accept setting");
+  }
 }
 
 function initAutoAccept() {
-  var saved = localStorage.getItem("vancrox_aa");
-  if (saved === "1") {
-    AUTO_ACCEPT = true;
-    var el = document.getElementById("autoAcceptToggle");
-    if (el) el.checked = true;
-  }
+  // Load from USER object (fetched from backend)
+  var isOn = USER && USER.autoAccept ? true : false;
+  AUTO_ACCEPT = isOn;
+  var el = document.getElementById("autoAcceptToggle");
+  if (el) el.checked = isOn;
 }
 
 async function runAutoAccept() {
-  if (!AUTO_ACCEPT) return;
-  var pending = TRADES.filter(function(t) {
-    return t.status === "WAITING_TRADER_CONFIRMATION";
-  });
-  for (var i = 0; i < pending.length; i++) {
-    var t = pending[i];
-    var elapsed = Date.now() - new Date(t.hireTime).getTime();
-    if (elapsed < 4.5 * 60 * 1000) { // within 4.5 min window
-      console.log("Auto accepting trade:", t._id);
-      var r = await apiFetch("/api/trader/trades/" + t._id + "/accept", "POST", {});
-      if (r.ok) {
-        toast("⚡ Auto accepted trade from investor");
-        await loadTrades();
-      }
-    }
-  }
+  // Server handles auto-accept now — nothing needed client-side
 }
 
 function tickTrades(){
